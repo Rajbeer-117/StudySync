@@ -1,57 +1,35 @@
 # StudySync
-### Campus Tutoring & Study Room Booking Platform
 
-**Internet Applications and Distributed Systems | University of Windsor**
+Book tutors and study rooms in seconds. Students search real-time availability, book instantly or request approval, message their tutor, reschedule, and get reminders. Tutors publish availability, approve requests and track their week.
 
-StudySync is a Django-based web application designed to simplify campus tutoring and study room reservations. The platform provides students with a centralized system to discover tutors, search available study rooms, manage bookings, and access academic support resources.
+## Features
+- **Smart search**: keyword, subject, date, time, location, capacity, sort; pagination; Ctrl/⌘ + K command palette.
+- **Race-safe booking**: database-level availability checks, atomic transactions and a unique active-booking constraint.
+- **Approval workflow**: tutors can approve or decline each request; statuses Pending / Confirmed / Declined / Cancelled.
+- **Rescheduling, cancellation, .ics calendar export** (with reminder alarm).
+- **Booking messages** between student and tutor.
+- **Notifications**: in-app bell and email; `send_reminders` command for 24h reminders.
+- **Tutor studio**: recurring weekly availability, request inbox, 7-week session chart, public profile.
+- **Reviews and favourites**, verified by completed sessions.
+- **Security**: login throttling, CSP, HSTS, secure cookies, CSRF, validated redirects, branded error pages.
+- **Design**: dark (black / cobalt, lime touches) and light (beige / sage, burgundy touches) liquid-glass themes.
 
-## Problem Statement
+## Run locally
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py seed_demo          # optional sample data
+python manage.py runserver
+```
+Demo logins (password `Demo12345!`): `student@example.test`, `tutor@example.test`, `alex@example.test` (approves each request). Create an admin with `python manage.py createsuperuser` (site at `/admin/`).
 
-Students often face difficulties finding available tutors and study spaces because reservations are managed through scattered emails, group chats, and manual sign-up systems.
+## Production
+```bash
+cp .env.example .env     # set DJANGO_SECRET_KEY, ALLOWED_HOSTS, passwords
+docker compose up -d --build
+```
+This starts gunicorn + PostgreSQL + Redis and an hourly reminder worker. Without Docker: `pip install psycopg[binary] redis`, set the variables in `.env.example`, then `python manage.py collectstatic --noinput && python manage.py migrate && gunicorn studysync.wsgi -c gunicorn.conf.py`. Static files are served by WhiteNoise; `/healthz/` is the health probe. Verify with `DJANGO_DEBUG=0 python manage.py check --deploy`.
 
-StudySync aims to solve these challenges by providing a centralized booking platform that reduces scheduling conflicts, prevents double-bookings, and improves accessibility to academic resources.
-
-## Key Features
-
-- **User Authentication:** Registration, login, logout, password reset, and role-based access.
-- **Guest Browsing:** Explore tutors and study rooms without creating an account.
-- **Tutor and Room Search:** Search and filter by subject, date, time, and location.
-- **Booking Management:** Reserve available tutoring sessions and study rooms with conflict prevention.
-- **Ratings and Reviews:** View tutor ratings and submit feedback.
-- **File Uploads:** Upload profile images, room images, and PDF study notes.
-- **Session Management:** Track pending bookings and recently viewed resources.
-- **Cookies:** Remember login preferences and previously selected search filters.
-- **Responsive Interface:** User-friendly pages for students, tutors, and administrators.
-
-## Technology Stack
-
-- **Backend:** Python, Django
-- **Frontend:** HTML, CSS, JavaScript
-- **Database:** Django ORM with a relational database
-- **Version Control:** Git and GitHub
-
-## Project Modules
-
-1. Database Models and Relationships
-2. Booking Logic and Availability Management
-3. Authentication and Form Validation
-4. Frontend Templates and UI/UX
-5. Search, File Uploads, Sessions, and Cookies
-
-## Team Members
-
-| Team Member | Responsibility |
-|---|---|
-| Rajbeer Kaur Dutta | Data Models & Database Design |
-| Vrajkumar Yaminkumar Patel | Booking Logic & Views |
-| Krishkumar Maheshbhai Patel | Authentication, Guest Access & Forms |
-| Bhavya Ketan Patel | Templates & UI/UX |
-| Harsh Jayeshkumar Patel | Search, Uploads, Sessions & Cookies |
-
-## Project Status
-
-**In Development** — Initial project proposal completed. Implementation and integration are planned.
-
-## Academic Information
-
-Developed as a group project for the Internet Applications and Distributed Systems course at the University of Windsor.
+## Tests
+`python manage.py test` (39 tests).
