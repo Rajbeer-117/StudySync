@@ -1,0 +1,18 @@
+{% extends 'core/base.html' %}
+{% block title %}Book a session{% endblock %}
+{% block content %}
+<div class="container page narrow">
+  <a class="back" href="{% if slot.tutor_id %}{% url 'tutor_detail' slot.tutor_id %}{% else %}{% url 'room_detail' slot.room_id %}{% endif %}">{% include 'core/_icon.html' with name='arrow-right' %} Back</a>
+  <ol class="progress" aria-label="Booking progress"><li class="is-on">Choose time</li><li class="is-on">Details</li><li>Confirm</li></ol>
+  <header class="page-head reveal"><span class="kicker">Step 1 of 2</span><h1>Make this time yours.</h1><p>Review your selection and add a note for the session.</p></header>
+  <section class="glass summary reveal">
+    <span class="kicker">Your selection</span><h2>{{ slot.resource }}</h2>
+    <ul class="facts"><li>{% include 'core/_icon.html' with name='calendar' %} {{ slot.date|date:'l, F j, Y' }}</li><li>{% include 'core/_icon.html' with name='clock' %} {{ slot.start_time|time:'g:i A' }} – {{ slot.end_time|time:'g:i A' }}</li><li>{% include 'core/_icon.html' with name='pin' %} {% if slot.tutor_id %}{{ slot.tutor.location }}{% else %}{{ slot.room.building }}{% endif %}</li></ul>
+    <form method="post" class="stack">{% csrf_token %}
+      {% for field in form %}<label class="field"><span>{{ field.label }}</span>{{ field }}{% for e in field.errors %}<em class="field-error">{{ e }}</em>{% endfor %}</label>{% endfor %}
+      <p class="hint">{% include 'core/_icon.html' with name='shield' %} We re-check for conflicts when you confirm.</p>
+      <button class="btn btn-primary btn-block" type="submit">Continue {% include 'core/_icon.html' with name='arrow-right' %}</button>
+    </form>
+  </section>
+</div>
+{% endblock %}

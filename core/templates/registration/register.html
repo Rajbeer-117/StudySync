@@ -1,0 +1,23 @@
+{% extends 'core/base.html' %}
+{% block title %}Create an account{% endblock %}
+{% block content %}
+<section class="container auth">
+  <div class="auth-copy reveal"><span class="kicker">Join StudySync</span><h1>Find your people. Find your place.</h1><p>Create a student or tutor account and make every study session count.</p>
+    <ul class="ticks"><li>{% include 'core/_icon.html' with name='check' %} Students: book tutors and rooms</li><li>{% include 'core/_icon.html' with name='check' %} Tutors: publish availability, get booked</li></ul></div>
+  <div class="auth-card glass reveal">
+    <h2>Create your account</h2><p class="meta">A few details and you're in.</p>
+    <form method="post" class="stack">{% csrf_token %}
+      {% if form.non_field_errors %}<div class="form-error" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+      {% for field in form %}
+        {% if field.name == 'role' %}
+          <div class="role-group" role="radiogroup" aria-labelledby="role-label"><span class="role-label" id="role-label">{{ field.label }}</span><div class="roles">{% for radio in field %}<label class="role-card">{{ radio.tag }}<span>{% if radio.data.value == 'tutor' %}{% include 'core/_icon.html' with name='book' %}{% else %}{% include 'core/_icon.html' with name='user' %}{% endif %}{{ radio.choice_label }}</span></label>{% endfor %}</div></div>
+        {% else %}
+          <label class="field"><span>{{ field.label }}</span>{{ field }}{% if field.help_text and field.name == 'password1' %}<small class="help">{{ field.help_text }}</small>{% endif %}{% for e in field.errors %}<em class="field-error">{{ e }}</em>{% endfor %}</label>
+        {% endif %}
+      {% endfor %}
+      <button type="submit" class="btn btn-primary btn-block">Create account {% include 'core/_icon.html' with name='arrow-right' %}</button>
+    </form>
+    <p class="auth-links">Already registered? <a href="{% url 'login' %}">Log in</a></p>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,67 @@
+{% extends 'core/base.html' %}
+{% block title %}Find tutors & study rooms{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="container hero-grid">
+    <div class="hero-copy reveal">
+      <span class="eyebrow glass"><i class="dot"></i> {{ tutor_count }} tutors · {{ room_count }} rooms · live availability</span>
+      <h1>Book the right help, <span class="grad">right when you need it.</span></h1>
+      <p class="lead">Search tutors and study rooms by subject, time and place, then reserve an open session in a few taps.</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary btn-lg" href="{% url 'catalog' %}">Explore availability {% include 'core/_icon.html' with name='arrow-right' %}</a>
+        {% if not user.is_authenticated %}<a class="btn btn-glass btn-lg" href="{% url 'register' %}">Create free account</a>{% else %}<a class="btn btn-glass btn-lg" href="{% url 'dashboard' %}">Go to dashboard</a>{% endif %}
+      </div>
+    </div>
+    <div class="hero-visual" aria-hidden="true">
+      <div class="float-card glass fc-main">
+        <div class="fc-head"><span class="avatar">J</span><div><strong>Jordan Smith</strong><small>Mathematics · Leddy Library</small></div><span class="chip chip-live"><i class="dot"></i> Open</span></div>
+        <div class="fc-slots"><span class="slot-pill">Tue 10:00</span><span class="slot-pill is-picked">Tue 11:30</span><span class="slot-pill">Wed 14:00</span></div>
+        <div class="fc-cta">Confirm booking {% include 'core/_icon.html' with name='check' %}</div>
+      </div>
+      <div class="float-card glass fc-rating">{% include 'core/_stars.html' with value=4.9 %}<strong>4.9</strong><small>{{ review_total }} student review{{ review_total|pluralize }}</small></div>
+      <div class="float-card glass fc-room">{% include 'core/_icon.html' with name='building' %}<div><strong>Room 308</strong><small>6 seats · free at 3:30</small></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="container search-dock reveal" aria-label="Quick availability search">
+  <form action="{% url 'catalog' %}" method="get" class="glass dock-form" id="quick-search-form">
+    <div class="dock-title"><strong>Find a session</strong><small>Filters use live availability</small></div>
+    <label class="field"><span>Subject</span><span class="select-shell">{{ search_form.subject }}{% include 'core/_icon.html' with name='chevron-down' %}</span></label>
+    <label class="field"><span>Date</span><span class="select-shell">{{ search_form.date }}{% include 'core/_icon.html' with name='chevron-down' %}</span></label>
+    <label class="field"><span>Time</span><span class="select-shell">{{ search_form.time }}{% include 'core/_icon.html' with name='chevron-down' %}</span></label>
+    <label class="field"><span>Location</span><span class="select-shell">{{ search_form.location }}{% include 'core/_icon.html' with name='chevron-down' %}</span></label>
+    <button class="btn btn-primary" type="submit">{% include 'core/_icon.html' with name='search' %} Search</button>
+  </form>
+</section>
+
+{% if open_now %}
+<section class="section container">
+  <div class="section-head row reveal"><div><span class="kicker">Next available</span><h2>Open soon</h2></div><a class="btn btn-glass btn-sm" href="{% url 'catalog' %}?when=today">All open today {% include 'core/_icon.html' with name='arrow-right' %}</a></div>
+  <div class="open-grid">
+    {% for slot in open_now %}
+    <a class="open-slot glass reveal" href="{% url 'start_booking' slot.pk %}">
+      <span class="feature-ico sm">{% if slot.tutor_id %}{% include 'core/_icon.html' with name='users' %}{% else %}{% include 'core/_icon.html' with name='building' %}{% endif %}</span>
+      <div class="row-main"><strong>{{ slot.resource }}</strong><small>{{ slot.date|date:'D, M j' }} · {{ slot.start_time|time:'g:i A' }}–{{ slot.end_time|time:'g:i A' }}</small></div>
+      <span class="go">Book {% include 'core/_icon.html' with name='arrow-up-right' %}</span>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section class="section container">
+  <div class="section-head row reveal"><div><span class="kicker">Top rated</span><h2>Tutors students love</h2></div><a class="btn btn-glass btn-sm" href="{% url 'catalog' %}?kind=tutor&sort=rating">View all {% include 'core/_icon.html' with name='arrow-right' %}</a></div>
+  <div class="card-grid">
+    {% for tutor in featured_tutors %}{% include 'core/_tutor_card.html' with tutor=tutor %}
+    {% empty %}<p class="empty-inline">No tutors yet. Run <code>python manage.py seed_demo</code> to add sample data.</p>{% endfor %}
+  </div>
+</section>
+
+{% if featured_rooms %}
+<section class="section container">
+  <div class="section-head row reveal"><div><span class="kicker">Study spaces</span><h2>Reserve a room</h2></div><a class="btn btn-glass btn-sm" href="{% url 'catalog' %}?kind=room">All rooms {% include 'core/_icon.html' with name='arrow-right' %}</a></div>
+  <div class="card-grid">{% for room in featured_rooms %}{% include 'core/_room_card.html' with room=room %}{% endfor %}</div>
+</section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,18 @@
+{% extends 'core/base.html' %}
+{% block title %}Notifications{% endblock %}
+{% block content %}
+<div class="container page narrow">
+  <header class="page-head row reveal"><div><span class="kicker">Inbox</span><h1>Notifications</h1><p>Bookings, requests, messages and reviews.</p></div>
+    {% if unread_count %}<form method="post" action="{% url 'notifications_read_all' %}">{% csrf_token %}<button class="btn btn-glass btn-sm" type="submit">{% include 'core/_icon.html' with name='check' %} Mark all read</button></form>{% endif %}</header>
+  <section class="list-panel glass reveal">
+    {% for n in page %}
+    <a class="row-item note-item {% if not n.is_read %}is-unread{% endif %}" href="{% url 'notification_go' n.pk %}">
+      <span class="feature-ico sm">{% if n.kind == 'message' %}{% include 'core/_icon.html' with name='message' %}{% elif n.kind == 'review' %}{% include 'core/_icon.html' with name='star' %}{% elif n.kind == 'request' %}{% include 'core/_icon.html' with name='inbox' %}{% elif n.kind == 'reminder' %}{% include 'core/_icon.html' with name='clock' %}{% else %}{% include 'core/_icon.html' with name='calendar' %}{% endif %}</span>
+      <div class="row-main"><strong>{{ n.title }}</strong>{% if n.body %}<small>{{ n.body }}</small>{% endif %}</div>
+      <small class="when">{{ n.created_at|timesince }} ago</small>
+    </a>
+    {% empty %}<div class="empty">{% include 'core/_icon.html' with name='bell' %}<h3>You're all caught up</h3><p>New bookings, messages and reminders will appear here.</p></div>{% endfor %}
+  </section>
+  {% include 'core/_pager.html' %}
+</div>
+{% endblock %}

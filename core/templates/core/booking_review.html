@@ -1,0 +1,23 @@
+{% extends 'core/base.html' %}
+{% block title %}Confirm booking{% endblock %}
+{% block content %}
+<div class="container page narrow">
+  <ol class="progress" aria-label="Booking progress"><li class="is-on">Choose time</li><li class="is-on">Details</li><li class="is-on">Confirm</li></ol>
+  <header class="page-head reveal"><span class="kicker">Step 2 of 2</span><h1>One last look.</h1><p>Confirm to reserve your session. You'll get an email and an in-app notification.</p></header>
+  <section class="glass summary reveal">
+    <span class="confirm-badge">{% include 'core/_icon.html' with name='check' %}</span>
+    <h2>{{ slot.resource }}</h2><p class="meta">{% if slot.kind == 'tutor' %}Tutoring session{% else %}Study room reservation{% endif %}</p>
+    <dl class="details">
+      <div><dt>Date</dt><dd>{{ slot.date|date:'l, F j, Y' }}</dd></div>
+      <div><dt>Time</dt><dd>{{ slot.start_time|time:'g:i A' }} – {{ slot.end_time|time:'g:i A' }}</dd></div>
+      <div><dt>Location</dt><dd>{% if slot.tutor_id %}{{ slot.tutor.location }}{% else %}{{ slot.room.building }}{% endif %}</dd></div>
+      <div><dt>Booked by</dt><dd>{{ user.get_full_name|default:user.email }}</dd></div>
+      {% if notes %}<div><dt>Notes</dt><dd>{{ notes|linebreaksbr }}</dd></div>{% endif %}
+    </dl>
+    <p class="hint">{% include 'core/_icon.html' with name='clock' %} This preview is held in your session for 15 minutes. A booking is saved only after you confirm.</p>
+    {% if needs_approval %}<p class="hint">{% include 'core/_icon.html' with name='inbox' %} This tutor approves each request. You'll be notified as soon as they respond.</p>{% endif %}
+    <form method="post">{% csrf_token %}<button class="btn btn-primary btn-block btn-lg" type="submit">{% if needs_approval %}Send request{% else %}Confirm booking{% endif %} {% include 'core/_icon.html' with name='check' %}</button></form>
+    <a class="link-reset" href="{% url 'catalog' %}">Return to explore</a>
+  </section>
+</div>
+{% endblock %}

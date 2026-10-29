@@ -1,0 +1,20 @@
+{% extends 'core/base.html' %}
+{% block title %}My profile{% endblock %}
+{% block content %}
+<div class="container page narrow">
+  <header class="page-head reveal"><span class="kicker">Account settings</span><h1>Your profile</h1><p>Update the details others see.</p></header>
+  <section class="glass summary reveal">
+    <div class="profile-head">
+      {% if student and student.photo %}<img class="avatar avatar-xl" src="{{ student.photo.url }}" alt="Your photo">{% elif tutor and tutor.photo %}<img class="avatar avatar-xl" src="{{ tutor.photo.url }}" alt="Your photo">{% else %}<span class="avatar avatar-xl">{{ user.first_name|slice:':1'|default:'S' }}</span>{% endif %}
+      <div class="profile-title"><h2>{{ user.get_full_name|default:user.username }}</h2><p class="meta">{{ user.email }}</p><span class="badge badge-open">{% if student %}Student{% elif tutor %}Tutor{% else %}Admin{% endif %}</span></div>
+    </div>
+    <form method="post" enctype="multipart/form-data" class="stack">{% csrf_token %}
+      <h3>Account details</h3>
+      {% for field in name_form %}<label class="field"><span>{{ field.label }}</span>{{ field }}{% for e in field.errors %}<em class="field-error">{{ e }}</em>{% endfor %}</label>{% endfor %}
+      {% if extra_form %}<h3>{% if student %}Student profile & uploads{% else %}Tutor information{% endif %}</h3>
+        {% for field in extra_form %}<label class="field"><span>{{ field.label }}</span>{{ field }}{% if field.name == 'photo' %}<small class="help">JPG or PNG, up to 3 MB.</small>{% elif field.name == 'study_notes' %}<small class="help">Optional PDF notes, up to 5 MB. Avoid sensitive files.</small>{% endif %}{% for e in field.errors %}<em class="field-error">{{ e }}</em>{% endfor %}</label>{% endfor %}{% endif %}
+      <div class="row-actions"><button type="submit" class="btn btn-primary">Save changes {% include 'core/_icon.html' with name='check' %}</button><a class="btn btn-ghost" href="{% url 'password_change' %}">{% include 'core/_icon.html' with name='key' %} Change password</a></div>
+    </form>
+  </section>
+</div>
+{% endblock %}

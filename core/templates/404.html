@@ -1,0 +1,8 @@
+{% extends 'core/base.html' %}
+{% block title %}Page not found{% endblock %}
+{% block content %}
+<section class="container auth auth-single"><div class="auth-card glass reveal" style="text-align:center">
+  <span class="kicker">Error 404</span><h2>Page not found</h2><p class="meta" style="justify-content:center">That page doesn't exist or has moved.</p>
+  <div class="row-actions" style="justify-content:center"><a class="btn btn-primary" href="{% url 'home' %}">Go home</a><a class="btn btn-glass" href="{% url 'catalog' %}">Explore</a></div>
+</div></section>
+{% endblock %}

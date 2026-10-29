@@ -1,0 +1,14 @@
+<article class="card room-card glass reveal">
+  <div class="card-top">
+    {% if room.image %}<img class="avatar avatar-lg avatar-square" src="{{ room.image.url }}" alt="">{% else %}<span class="avatar avatar-lg avatar-square room-glyph">{% include 'core/_icon.html' with name='building' %}</span>{% endif %}
+    {% if user.is_authenticated %}
+    <form method="post" action="{% url 'toggle_favorite' 'room' room.pk %}" class="fav-form">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <button class="fav-btn {% if room.pk in fav_rooms %}is-fav{% endif %}" type="submit" aria-label="{% if room.pk in fav_rooms %}Remove {{ room.name }} from favorites{% else %}Save {{ room.name }} to favorites{% endif %}" aria-pressed="{% if room.pk in fav_rooms %}true{% else %}false{% endif %}">{% include 'core/_icon.html' with name='heart' %}</button>
+    </form>
+    {% endif %}
+  </div>
+  <h3><a class="stretched" href="{% url 'room_detail' room.pk %}">{{ room.name }}</a></h3>
+  <div class="chips"><span class="chip">{% include 'core/_icon.html' with name='users' %} Up to {{ room.capacity }}</span>{% for a in room.amenity_list|slice:':2' %}<span class="chip">{{ a }}</span>{% endfor %}</div>
+  <p class="card-desc">{{ room.description|truncatewords:12 }}</p>
+  <div class="card-foot"><span class="meta">{% include 'core/_icon.html' with name='pin' %} {{ room.building }}</span><span class="go">View slots {% include 'core/_icon.html' with name='arrow-up-right' %}</span></div>
+</article>

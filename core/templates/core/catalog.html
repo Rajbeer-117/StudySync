@@ -1,0 +1,43 @@
+{% extends 'core/base.html' %}
+{% block title %}Explore{% endblock %}
+{% block content %}
+<div class="container page">
+  <header class="page-head reveal"><span class="kicker">Discovery</span><h1>Find your study flow.</h1><p>Live filters for tutors and study rooms.</p></header>
+  {% if not user.is_authenticated %}
+  <div class="banner glass reveal">{% include 'core/_icon.html' with name='sparkles' %}<div><strong>Browsing as a guest.</strong> Sign in only when you're ready to book.</div><a class="btn btn-glass btn-sm" href="{% url 'login' %}">Sign in</a></div>
+  {% endif %}
+  <div class="explore">
+    <aside class="filters glass" id="study-filters">
+      <button type="button" class="filters-toggle" aria-expanded="true" aria-controls="discovery-form">{% include 'core/_icon.html' with name='sliders' %} Filters</button>
+      <form method="get" action="{% url 'catalog' %}" class="stack discovery-form" id="discovery-form">
+        <label class="field"><span>Keyword</span>{{ form.q }}</label>
+        <label class="field"><span>Category</span><span class="select-shell">{{ form.kind }}{% include 'core/_icon.html' with name='chevron-down' %}</span></label>
+        <label class="field"><span>Subject</span><span class="select-shell">{{ form.subject }}{% include 'core/_icon.html' with name='chevron-down' %}</span></label>
+        <label class="field"><span>Availability</span><span class="select-shell">{{ form.when }}{% include 'core/_icon.html' with name='chevron-down' %}</span></label>
+        <div class="two"><label class="field"><span>Date</span><span class="select-shell">{{ form.date }}{% include 'core/_icon.html' with name='chevron-down' %}</span></label>
+        <label class="field"><span>Time</span><span class="select-shell">{{ form.time }}{% include 'core/_icon.html' with name='chevron-down' %}</span></label></div>
+        <label class="field"><span>Location</span><span class="select-shell">{{ form.location }}{% include 'core/_icon.html' with name='chevron-down' %}</span></label>
+        <label class="field"><span>Room size</span><span class="select-shell">{{ form.capacity }}{% include 'core/_icon.html' with name='chevron-down' %}</span></label>
+        <label class="field"><span>Sort by</span><span class="select-shell">{{ form.sort }}{% include 'core/_icon.html' with name='chevron-down' %}</span></label>
+        {% if form.errors %}<div class="form-error" role="alert">Please choose options from the lists.</div>{% endif %}
+        <button class="btn btn-primary btn-block" type="submit">{% include 'core/_icon.html' with name='search' %} Search</button>
+        <a class="link-reset" href="{% url 'catalog' %}?kind=">Clear all filters</a>
+      </form>
+      {% if recent_items %}<div class="recent"><h3>Recently viewed</h3>{% for item in recent_items %}<a href="{{ item.url }}">{% include 'core/_icon.html' with name='clock' %}<span>{{ item.name }}<small>{{ item.label }}</small></span></a>{% endfor %}</div>{% endif %}
+    </aside>
+    <section class="results" aria-live="polite">
+      <div class="results-bar">
+        <div class="segmented" role="group" aria-label="Category"><a class="{% if not kind %}is-on{% endif %}" href="?kind=">All</a><a class="{% if kind == 'tutor' %}is-on{% endif %}" href="?kind=tutor">Tutors</a><a class="{% if kind == 'room' %}is-on{% endif %}" href="?kind=room">Rooms</a></div>
+        <span class="count"><b>{{ result_count }}</b> match{{ result_count|pluralize:'es' }}</span>
+      </div>
+      <div class="active-filters" id="active-filter-summary"></div>
+      {% if page.object_list %}
+        <div class="card-grid">{% for item in page %}{% if item.kind == 'tutor' %}{% include 'core/_tutor_card.html' with tutor=item %}{% else %}{% include 'core/_room_card.html' with room=item %}{% endif %}{% endfor %}</div>
+        {% include 'core/_pager.html' %}
+      {% else %}
+        <div class="empty glass">{% include 'core/_icon.html' with name='search' %}<h3>No matches right now</h3><p>Try a different date, time or location, or clear the filters.</p><a class="btn btn-glass" href="{% url 'catalog' %}?kind=">See all options</a></div>
+      {% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}

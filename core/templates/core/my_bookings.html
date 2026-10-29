@@ -1,0 +1,17 @@
+{% extends 'core/base.html' %}
+{% block title %}My bookings{% endblock %}
+{% block content %}
+<div class="container page">
+  <header class="page-head row reveal"><div><span class="kicker">Your schedule</span><h1>My bookings</h1><p>Everything you've planned, in one place.</p></div><a class="btn btn-primary" href="{% url 'catalog' %}">{% include 'core/_icon.html' with name='plus' %} Book another</a></header>
+  <div class="segmented tabs reveal" role="tablist"><button type="button" class="is-on" data-tab="upcoming" role="tab">Upcoming <b>{{ upcoming|length }}</b></button><button type="button" data-tab="history" role="tab">History <b>{{ history|length }}</b></button></div>
+
+  <section class="list-panel glass" data-tab-panel="upcoming">
+    {% for booking in upcoming %}{% include 'core/_booking_row.html' with booking=booking can_manage=True %}
+    {% empty %}<div class="empty">{% include 'core/_icon.html' with name='calendar' %}<h3>No upcoming sessions</h3><p>Choose an available time to get started.</p><a class="btn btn-primary" href="{% url 'catalog' %}">Browse tutors & rooms</a></div>{% endfor %}
+  </section>
+  <section class="list-panel glass" data-tab-panel="history" hidden>
+    {% for booking in history %}{% include 'core/_booking_row.html' with booking=booking can_manage=False %}
+    {% empty %}<div class="empty">{% include 'core/_icon.html' with name='clock' %}<h3>No past sessions yet</h3><p>Completed and cancelled bookings appear here.</p></div>{% endfor %}
+  </section>
+</div>
+{% endblock %}

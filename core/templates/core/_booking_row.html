@@ -1,0 +1,9 @@
+<div class="row-item booking">
+  <div class="date-tile"><strong>{{ booking.slot.date|date:'d' }}</strong><small>{{ booking.slot.date|date:'M' }}</small></div>
+  <a class="row-main" href="{% url 'booking_detail' booking.pk %}"><strong>{{ booking.slot.resource }}</strong><small>{{ booking.slot.date|date:'D' }} · {{ booking.slot.start_time|time:'g:i A' }} – {{ booking.slot.end_time|time:'g:i A' }} · {{ booking.slot.kind|title }}</small>{% if booking.notes %}<small class="note">“{{ booking.notes|truncatechars:90 }}”</small>{% endif %}</a>
+  <div class="row-actions">
+    <span class="badge badge-{{ booking.tone }}">{{ booking.display_status }}</span>
+    {% if can_manage and booking.status == 'confirmed' %}<a class="btn btn-glass btn-sm" href="{% url 'booking_ics' booking.pk %}">{% include 'core/_icon.html' with name='download' %} .ics</a>{% endif %}
+    <a class="btn btn-ghost btn-sm" href="{% url 'booking_detail' booking.pk %}">Open {% include 'core/_icon.html' with name='arrow-right' %}</a>
+  </div>
+</div>

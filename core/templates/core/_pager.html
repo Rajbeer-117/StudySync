@@ -1,0 +1,7 @@
+{% if page.paginator.num_pages > 1 %}
+<nav class="pager" aria-label="Pagination">
+  {% if page.has_previous %}<a class="btn btn-glass btn-sm" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page.previous_page_number }}">{% include 'core/_icon.html' with name='arrow-right' %}<span class="sr-flip">Previous</span></a>{% else %}<span></span>{% endif %}
+  <span class="pager-info">Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+  {% if page.has_next %}<a class="btn btn-glass btn-sm" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page.next_page_number }}">Next {% include 'core/_icon.html' with name='arrow-right' %}</a>{% else %}<span></span>{% endif %}
+</nav>
+{% endif %}

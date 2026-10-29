@@ -1,0 +1,79 @@
+{% extends 'core/base.html' %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="container page">
+  <header class="page-head row reveal"><div><span class="kicker">{% if student %}Your study space{% elif tutor %}Tutor studio{% else %}Admin{% endif %}</span><h1>Welcome back, {{ user.first_name|default:'there' }}.</h1><p>{% if student %}Make room for your next productive session.{% elif tutor %}Requests, sessions and how your week looks.{% else %}Manage the platform from the admin site.{% endif %}</p></div>
+    {% if student %}<a class="btn btn-primary" href="{% url 'catalog' %}">{% include 'core/_icon.html' with name='plus' %} New booking</a>{% elif tutor %}<a class="btn btn-primary" href="{% url 'manage_slots' %}">{% include 'core/_icon.html' with name='plus' %} Add availability</a>{% endif %}</header>
+
+{% if student %}
+  <div class="dash-grid">
+    <section class="next glass reveal">
+      <span class="kicker">Up next</span>
+      {% if next_booking %}
+        <h2>{{ next_booking.slot.resource }} <span class="badge badge-{{ next_booking.tone }}">{{ next_booking.display_status }}</span></h2>
+        <p class="meta">{% include 'core/_icon.html' with name='calendar' %} {{ next_booking.slot.date|date:'l, M j' }} · {{ next_booking.slot.start_time|time:'g:i A' }} – {{ next_booking.slot.end_time|time:'g:i A' }}</p>
+        <div class="countdown" data-countdown="{{ next_booking.slot.date|date:'Y-m-d' }}T{{ next_booking.slot.start_time|time:'H:i' }}"><span>--</span> <small>until your session</small></div>
+        <div class="row-actions"><a class="btn btn-glass btn-sm" href="{% url 'booking_detail' next_booking.pk %}">View details</a>{% if next_booking.status == 'confirmed' %}<a class="btn btn-ghost btn-sm" href="{% url 'booking_ics' next_booking.pk %}">{% include 'core/_icon.html' with name='download' %} Add to calendar</a>{% endif %}</div>
+      {% else %}
+        <h2>Nothing booked yet</h2><p class="meta">Search tutors and rooms to reserve your first session.</p><a class="btn btn-primary btn-sm" href="{% url 'catalog' %}">Explore availability</a>
+      {% endif %}
+    </section>
+    <div class="stat-col">
+      <div class="stat glass reveal"><span class="feature-ico sm">{% include 'core/_icon.html' with name='check' %}</span><div><strong>{{ booking_count }}</strong><small>Confirmed bookings</small></div></div>
+      <div class="stat glass reveal"><span class="feature-ico sm">{% include 'core/_icon.html' with name='clock' %}</span><div><strong>{{ hours_studied }}h</strong><small>Studied so far</small></div></div>
+      <div class="stat glass reveal"><span class="feature-ico sm">{% include 'core/_icon.html' with name='inbox' %}</span><div><strong>{{ pending_count }}</strong><small>Awaiting approval</small></div></div>
+    </div>
+  </div>
+  {% if to_review %}
+  <section class="glass prompt reveal"><div>{% include 'core/_icon.html' with name='star' %}</div><div><h2>How did it go?</h2><p>Rate your recent sessions to help other students.</p></div><div class="row-actions">{% for t in to_review %}<a class="btn btn-glass btn-sm" href="{% url 'tutor_detail' t.pk %}#reviews">Review {{ t.display_name }}</a>{% endfor %}</div></section>
+  {% endif %}
+  <div class="dash-cols">
+    <section class="panel glass reveal"><div class="panel-head"><h2>Upcoming sessions</h2><a href="{% url 'my_bookings' %}">View all</a></div>
+      {% for booking in upcoming %}<a class="row-item" href="{% url 'booking_detail' booking.pk %}"><div class="date-tile"><strong>{{ booking.slot.date|date:'d' }}</strong><small>{{ booking.slot.date|date:'M' }}</small></div><div class="row-main"><strong>{{ booking.slot.resource }}</strong><small>{{ booking.slot.start_time|time:'g:i A' }} – {{ booking.slot.end_time|time:'g:i A' }} · {{ booking.slot.kind|title }}</small></div><span class="badge badge-{{ booking.tone }}">{{ booking.display_status }}</span></a>
+      {% empty %}<p class="hint">No upcoming sessions.</p>{% endfor %}
+    </section>
+    <section class="panel glass reveal"><div class="panel-head"><h2>Saved for later</h2><a href="{% url 'favorites' %}">View all</a></div>
+      {% for fav in favorites_preview %}<a class="row-item" href="{% if fav.tutor_id %}{% url 'tutor_detail' fav.tutor_id %}{% else %}{% url 'room_detail' fav.room_id %}{% endif %}"><span class="avatar avatar-sm">{{ fav.resource|slice:':1' }}</span><div class="row-main"><strong>{% if fav.tutor_id %}{{ fav.tutor.display_name }}{% else %}{{ fav.room.name }}{% endif %}</strong><small>{% if fav.tutor_id %}{{ fav.tutor.subjects }}{% else %}{{ fav.room.building }}{% endif %}</small></div>{% include 'core/_icon.html' with name='arrow-right' %}</a>
+      {% empty %}<p class="hint">Tap the heart on any tutor or room to save it here.</p>{% endfor %}
+    </section>
+  </div>
+
+{% elif tutor %}
+  <div class="stat-row">
+    <div class="stat glass reveal"><span class="feature-ico sm">{% include 'core/_icon.html' with name='calendar' %}</span><div><strong>{{ upcoming_session_count }}</strong><small>Upcoming sessions</small></div></div>
+    <div class="stat glass reveal"><span class="feature-ico sm">{% include 'core/_icon.html' with name='clock' %}</span><div><strong>{{ open_slot_count }}</strong><small>Open slots</small></div></div>
+    <div class="stat glass reveal"><span class="feature-ico sm">{% include 'core/_icon.html' with name='check' %}</span><div><strong>{{ completed_total }}</strong><small>Sessions delivered</small></div></div>
+    <div class="stat glass reveal"><span class="feature-ico sm">{% include 'core/_icon.html' with name='star' %}</span><div><strong>{% if rating.avg %}{{ rating.avg|floatformat:1 }}{% else %}–{% endif %}</strong><small>{{ rating.count }} review{{ rating.count|pluralize }}</small></div></div>
+  </div>
+
+  {% if pending_requests %}
+  <section class="panel glass reveal requests"><div class="panel-head"><h2>Booking requests <span class="count-pill">{{ pending_total }}</span></h2></div>
+    {% for b in pending_requests %}
+    <div class="row-item">
+      <div class="date-tile"><strong>{{ b.slot.date|date:'d' }}</strong><small>{{ b.slot.date|date:'M' }}</small></div>
+      <a class="row-main" href="{% url 'booking_detail' b.pk %}"><strong>{{ b.student.user.get_full_name|default:b.student.user.email }}</strong><small>{{ b.slot.start_time|time:'g:i A' }} – {{ b.slot.end_time|time:'g:i A' }}{% if b.notes %} · “{{ b.notes|truncatechars:60 }}”{% endif %}</small></a>
+      <div class="row-actions">
+        <form method="post" action="{% url 'tutor_decide_booking' b.pk %}">{% csrf_token %}<input type="hidden" name="decision" value="approve"><button class="btn btn-primary btn-sm" type="submit">{% include 'core/_icon.html' with name='check' %} Approve</button></form>
+        <form method="post" action="{% url 'tutor_decide_booking' b.pk %}">{% csrf_token %}<input type="hidden" name="decision" value="decline"><button class="btn btn-danger btn-sm" type="submit" data-confirm="Decline this request?">Decline</button></form>
+      </div>
+    </div>{% endfor %}
+  </section>
+  {% endif %}
+
+  <div class="dash-cols">
+    <section class="panel glass reveal"><div class="panel-head"><h2>Sessions per week</h2><small>last 5 · next 2</small></div>
+      <div class="chart" role="img" aria-label="Sessions per week bar chart">
+        {% for w in chart %}<div class="chart-col{% if w.current %} is-current{% endif %}"><span class="chart-val">{{ w.count }}</span><i><b style="height:{{ w.pct }}%"></b></i><span class="chart-lbl">{{ w.label }}</span></div>{% endfor %}
+      </div>
+    </section>
+    <section class="panel glass reveal"><div class="panel-head"><h2>Next booked sessions</h2><a href="{% url 'manage_slots' %}">Manage</a></div>
+      {% for b in tutor_upcoming %}<a class="row-item" href="{% url 'booking_detail' b.pk %}"><div class="date-tile"><strong>{{ b.slot.date|date:'d' }}</strong><small>{{ b.slot.date|date:'M' }}</small></div><div class="row-main"><strong>{{ b.student.user.get_full_name|default:b.student.user.email }}</strong><small>{{ b.slot.start_time|time:'g:i A' }} – {{ b.slot.end_time|time:'g:i A' }}{% if b.notes %} · “{{ b.notes|truncatechars:40 }}”{% endif %}</small></div><span class="badge badge-ok">Booked</span></a>
+      {% empty %}<p class="hint">No booked sessions yet. Add availability so students can find you.</p>{% endfor %}
+      <div class="row-actions"><a class="btn btn-glass btn-sm" href="{% url 'profile' %}">Edit profile</a><a class="btn btn-ghost btn-sm" href="{% url 'tutor_detail' tutor.pk %}">View public page</a></div>
+    </section>
+  </div>
+{% else %}
+  <section class="panel glass"><h2>Administrator account</h2><p class="hint">Manage tutors, rooms, availability, bookings and reviews in the admin site.</p><a class="btn btn-primary" href="/admin/">Open admin</a></section>
+{% endif %}
+</div>
+{% endblock %}

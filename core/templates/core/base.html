@@ -1,0 +1,85 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Find campus tutors and study rooms, and book open sessions in a few taps.">
+  <meta name="theme-color" content="#030407" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#E8D2B5" media="(prefers-color-scheme: light)">
+  <title>{% block title %}StudySync{% endblock %} · StudySync</title>
+  <link rel="icon" href="{% static 'core/img/favicon.svg' %}" type="image/svg+xml">
+  <link rel="manifest" href="{% static 'core/manifest.webmanifest' %}">
+  <script src="{% static 'core/js/theme-init.js' %}"></script>
+  <link rel="stylesheet" href="{% static 'core/css/style.css' %}">
+  <script defer src="{% static 'core/js/main.js' %}"></script>
+</head>
+<body>
+<div class="bg-orbs" aria-hidden="true"><i class="orb orb-a"></i><i class="orb orb-b"></i><i class="orb orb-c"></i><i class="orb orb-touch"></i></div>
+<a class="skip-link" href="#main-content">Skip to content</a>
+
+<header class="nav glass" id="site-nav">
+  <a class="brand" href="{% url 'home' %}" aria-label="StudySync home"><span class="brand-mark">{% include 'core/_icon.html' with name='book' %}</span><span class="brand-name">Study<b>Sync</b></span></a>
+  <button type="button" class="nav-burger" aria-label="Open menu" aria-expanded="false" aria-controls="nav-panel">{% include 'core/_icon.html' with name='menu' %}</button>
+  <div class="nav-panel" id="nav-panel">
+    <nav class="nav-links" aria-label="Main navigation">
+      <a href="{% url 'catalog' %}" {% if request.resolver_match.url_name == 'catalog' %}aria-current="page"{% endif %}>Explore</a>
+      {% if user.is_authenticated %}
+        <a href="{% url 'dashboard' %}" {% if request.resolver_match.url_name == 'dashboard' %}aria-current="page"{% endif %}>Dashboard</a>
+        {% if user.student_profile %}
+          <a href="{% url 'my_bookings' %}" {% if request.resolver_match.url_name == 'my_bookings' %}aria-current="page"{% endif %}>Bookings</a>
+          <a href="{% url 'favorites' %}" {% if request.resolver_match.url_name == 'favorites' %}aria-current="page"{% endif %}>Saved</a>
+        {% elif user.tutor_profile %}
+          <a href="{% url 'manage_slots' %}" {% if request.resolver_match.url_name == 'manage_slots' %}aria-current="page"{% endif %}>Availability</a>
+        {% endif %}
+      {% endif %}
+    </nav>
+    <div class="nav-actions">
+      <button type="button" class="nav-search" data-palette-open aria-label="Search (Ctrl or Command K)">{% include 'core/_icon.html' with name='search' %}<span>Search</span><kbd>⌘K</kbd></button>
+      {% if user.is_authenticated %}
+        <a class="bell" href="{% url 'notifications' %}" aria-label="Notifications{% if unread_count %}, {{ unread_count }} unread{% endif %}">{% include 'core/_icon.html' with name='bell' %}{% if unread_count %}<span class="bell-badge">{% if unread_count > 9 %}9+{% else %}{{ unread_count }}{% endif %}</span>{% endif %}</a>
+      {% endif %}
+      <button type="button" class="theme-switch" data-theme-toggle role="switch" aria-checked="false" aria-label="Switch to dark mode" title="Toggle dark / light">
+        <span class="theme-knob">{% include 'core/_icon.html' with name='sun' %}{% include 'core/_icon.html' with name='moon' %}</span>
+      </button>
+      {% if user.is_authenticated %}
+        <div class="menu" data-menu>
+          <button type="button" class="menu-trigger" data-menu-trigger aria-haspopup="true" aria-expanded="false"><span class="avatar avatar-sm">{{ user.first_name|slice:':1'|default:'U' }}</span><span class="menu-name">{{ user.first_name|default:'Account' }}</span>{% include 'core/_icon.html' with name='chevron-down' %}</button>
+          <div class="menu-sheet glass" role="menu">
+            <a role="menuitem" href="{% url 'dashboard' %}">{% include 'core/_icon.html' with name='grid' %} Dashboard</a>
+            <a role="menuitem" href="{% url 'notifications' %}">{% include 'core/_icon.html' with name='bell' %} Notifications</a>
+            <a role="menuitem" href="{% url 'profile' %}">{% include 'core/_icon.html' with name='user' %} Profile</a>
+            <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button role="menuitem" type="submit">{% include 'core/_icon.html' with name='log-out' %} Log out</button></form>
+          </div>
+        </div>
+      {% else %}
+        <a class="btn btn-ghost btn-sm" href="{% url 'login' %}">Log in</a>
+        <a class="btn btn-primary btn-sm" href="{% url 'register' %}">Get started</a>
+      {% endif %}
+    </div>
+  </div>
+</header>
+
+{% if messages %}
+<div class="toasts" role="status" aria-live="polite">
+  {% for message in messages %}
+    <div class="toast glass toast-{{ message.tags|default:'info' }}">
+      <span class="toast-icon">{% if message.tags == 'error' or message.tags == 'warning' %}{% include 'core/_icon.html' with name='zap' %}{% else %}{% include 'core/_icon.html' with name='check' %}{% endif %}</span>
+      <p>{{ message }}</p>
+      <button type="button" class="toast-close" aria-label="Dismiss">{% include 'core/_icon.html' with name='x' %}</button>
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<main id="main-content">{% block content %}{% endblock %}</main>
+
+<div class="palette" id="palette" hidden role="dialog" aria-modal="true" aria-label="Quick search">
+  <div class="palette-backdrop" data-palette-close></div>
+  <div class="palette-box glass">
+    <div class="palette-input">{% include 'core/_icon.html' with name='search' %}<input id="palette-input" type="search" placeholder="Search tutors, subjects, rooms…" autocomplete="off" aria-controls="palette-results" data-search-url="{% url 'api_search' %}"><kbd>Esc</kbd></div>
+    <ul id="palette-results" role="listbox"></ul>
+    <p class="palette-empty" id="palette-empty">Type at least 2 letters. <a href="{% url 'catalog' %}">Open full search</a></p>
+  </div>
+</div>
+</body>
+</html>

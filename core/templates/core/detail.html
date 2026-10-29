@@ -1,0 +1,87 @@
+{% extends 'core/base.html' %}
+{% block title %}{% if resource_kind == 'tutor' %}{{ resource.display_name }}{% else %}{{ resource.name }}{% endif %}{% endblock %}
+{% block content %}
+<div class="container page detail">
+  <a class="back" href="{% url 'catalog' %}">{% include 'core/_icon.html' with name='arrow-right' %} Back to explore</a>
+  <div class="detail-grid">
+    <div class="detail-main">
+      <section class="profile glass reveal">
+        <div class="profile-head">
+          {% if resource.photo %}<img class="avatar avatar-xl" src="{{ resource.photo.url }}" alt="{{ resource }}">
+          {% elif resource.image %}<img class="avatar avatar-xl avatar-square" src="{{ resource.image.url }}" alt="{{ resource }}">
+          {% elif resource_kind == 'tutor' %}<span class="avatar avatar-xl">{{ resource.display_name|slice:':1' }}</span>
+          {% else %}<span class="avatar avatar-xl avatar-square room-glyph">{% include 'core/_icon.html' with name='building' %}</span>{% endif %}
+          <div class="profile-title">
+            <span class="kicker">{% if resource_kind == 'tutor' %}Campus tutor{% else %}Study space{% endif %}</span>
+            <h1>{% if resource_kind == 'tutor' %}{{ resource.display_name }}{% else %}{{ resource.name }}{% endif %}</h1>
+            {% if resource_kind == 'tutor' %}
+              <div class="rating-line big">{% include 'core/_stars.html' with value=summary.avg %}<span>{% if summary.count %}<b>{{ summary.avg|floatformat:1 }}</b> <small>· {{ summary.count }} review{{ summary.count|pluralize }}</small>{% else %}<small>No reviews yet</small>{% endif %}</span></div>
+              <div class="chips">{% for s in resource.subject_list %}<span class="chip">{{ s }}</span>{% endfor %}{% if resource.requires_approval %}<span class="chip chip-note">{% include 'core/_icon.html' with name='shield' %} Approval required</span>{% endif %}</div>
+            {% else %}
+              <div class="chips"><span class="chip">{% include 'core/_icon.html' with name='users' %} Up to {{ resource.capacity }}</span><span class="chip">{% include 'core/_icon.html' with name='pin' %} {{ resource.building }}</span></div>
+            {% endif %}
+          </div>
+          {% if user.is_authenticated %}
+          <form method="post" action="{% url 'toggle_favorite' resource_kind resource.pk %}" class="fav-form">{% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}">
+            <button class="btn btn-glass btn-sm fav-btn-wide {% if is_favorite %}is-fav{% endif %}" type="submit" aria-pressed="{% if is_favorite %}true{% else %}false{% endif %}">{% include 'core/_icon.html' with name='heart' %} {% if is_favorite %}Saved{% else %}Save{% endif %}</button></form>
+          {% endif %}
+        </div>
+        <div class="profile-body">
+          {% if resource_kind == 'tutor' %}
+            <h2>About</h2><p>{{ resource.bio|default:'More information about this tutor will be available soon.' }}</p>
+            <ul class="facts"><li>{% include 'core/_icon.html' with name='pin' %} {{ resource.location }}</li><li>{% include 'core/_icon.html' with name='clock' %} Weekday sessions</li></ul>
+          {% else %}
+            <h2>About this space</h2><p>{{ resource.description|default:'A quiet campus study space.' }}</p>
+            <h2>Amenities</h2><div class="chips">{% for a in resource.amenity_list %}<span class="chip">{{ a }}</span>{% empty %}<span class="chip">Standard amenities</span>{% endfor %}</div>
+          {% endif %}
+        </div>
+      </section>
+
+      {% if resource_kind == 'tutor' %}
+      <section class="reviews glass reveal" id="reviews">
+        <div class="reviews-head">
+          <h2>Reviews</h2>
+          {% if summary.count %}<div class="score"><strong>{{ summary.avg|floatformat:1 }}</strong>{% include 'core/_stars.html' with value=summary.avg %}<small>{{ summary.count }} rating{{ summary.count|pluralize }}</small></div>{% endif %}
+        </div>
+        {% if summary.count %}<div class="bars">{% for row in breakdown %}<div class="bar"><span>{{ row.stars }}★</span><i><b style="width:{{ row.pct }}%"></b></i><span>{{ row.count }}</span></div>{% endfor %}</div>{% endif %}
+
+        {% if can_review %}
+        <form method="post" action="{% url 'submit_review' resource.pk %}" class="review-form stack">{% csrf_token %}
+          <h3>{% if my_review %}Update your review{% else %}Leave a review{% endif %}</h3>
+          <div class="star-input" role="radiogroup" aria-label="Your rating">{% for v in '54321' %}<input type="radio" name="rating" id="star{{ v }}" value="{{ v }}" {% if my_review and my_review.rating|stringformat:'d' == v %}checked{% endif %} required><label for="star{{ v }}" title="{{ v }} stars">★</label>{% endfor %}</div>
+          <label class="field"><span>{{ review_form.comment.label }}</span>{{ review_form.comment }}</label>
+          <button class="btn btn-primary" type="submit">{% if my_review %}Save changes{% else %}Publish review{% endif %}</button>
+        </form>
+        {% elif is_student %}<p class="hint">{% include 'core/_icon.html' with name='shield' %} Reviews are open to students after a completed session, so ratings stay honest.</p>{% endif %}
+
+        <div class="review-list">
+          {% for review in reviews %}
+          <article class="review">
+            <span class="avatar avatar-sm">{{ review.student.user.first_name|slice:':1'|default:'S' }}</span>
+            <div><div class="review-top"><strong>{{ review.student.user.first_name|default:'Student' }} {{ review.student.user.last_name|slice:':1' }}{% if review.student.user.last_name %}.{% endif %}</strong>{% include 'core/_stars.html' with value=review.rating %}<time>{{ review.created_at|date:'M j, Y' }}</time></div>
+              {% if review.comment %}<p>{{ review.comment }}</p>{% endif %}
+              {% if my_review and review.pk == my_review.pk %}<form method="post" action="{% url 'delete_review' review.pk %}">{% csrf_token %}<button class="link-danger" type="submit" data-confirm="Delete your review?">Delete my review</button></form>{% endif %}
+            </div>
+          </article>
+          {% empty %}<p class="hint">No reviews yet. Be the first after your session.</p>{% endfor %}
+        </div>
+      </section>
+      {% endif %}
+    </div>
+
+    <aside class="slots glass reveal">
+      <div class="slots-head"><span class="feature-ico sm">{% include 'core/_icon.html' with name='calendar' %}</span><div><h2>Choose your time</h2><p>Upcoming open sessions</p></div></div>
+      {% if slots %}
+        {% regroup slots by date as days %}
+        <div class="day-list">{% for day in days %}
+          <div class="day"><h3>{{ day.grouper|date:'l, M j' }}</h3>
+            <div class="slot-grid">{% for slot in day.list %}<a class="slot-pill" href="{% url 'start_booking' slot.pk %}">{{ slot.start_time|time:'g:i A' }} <small>– {{ slot.end_time|time:'g:i A' }}</small></a>{% endfor %}</div>
+          </div>{% endfor %}
+        </div>
+      {% else %}<div class="empty-mini"><p>No open slots right now.</p><small>{% if resource_kind == 'tutor' %}Check back soon or save this tutor.{% else %}New times are added regularly.{% endif %}</small></div>{% endif %}
+      <p class="hint">{% include 'core/_icon.html' with name='shield' %} {% if resource.requires_approval %}This tutor approves each request, and you'll be notified.{% else %}Booked instantly. Double-bookings are prevented automatically.{% endif %}</p>
+      {% if not user.is_authenticated %}<p class="hint">Browsing is open. <a href="{% url 'login' %}?next={{ request.path|urlencode }}">Log in</a> to book.</p>{% endif %}
+    </aside>
+  </div>
+</div>
+{% endblock %}

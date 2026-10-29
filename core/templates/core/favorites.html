@@ -1,0 +1,13 @@
+{% extends 'core/base.html' %}
+{% block title %}Saved{% endblock %}
+{% block content %}
+<div class="container page">
+  <header class="page-head reveal"><span class="kicker">Your shortlist</span><h1>Saved tutors & rooms</h1><p>Quick access to the places and people you rely on.</p></header>
+  {% if has_any %}
+  <div class="card-grid">{% for tutor in tutors %}{% include 'core/_tutor_card.html' with tutor=tutor %}{% endfor %}{% for room in rooms %}{% include 'core/_room_card.html' with room=room %}{% endfor %}</div>
+  <p class="hint">Tap a heart to remove it from this list.</p>
+  {% else %}
+  <div class="empty glass reveal">{% include 'core/_icon.html' with name='heart' %}<h3>Nothing saved yet</h3><p>Tap the heart on a tutor or room to keep it here.</p><a class="btn btn-primary" href="{% url 'catalog' %}">Explore</a></div>
+  {% endif %}
+</div>
+{% endblock %}

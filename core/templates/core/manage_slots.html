@@ -1,0 +1,37 @@
+{% extends 'core/base.html' %}
+{% block title %}My availability{% endblock %}
+{% block content %}
+<div class="container page">
+  <header class="page-head reveal"><span class="kicker">Tutor tools</span><h1>My availability</h1><p>Publish open times and manage the sessions students book.</p></header>
+  <div class="manage-grid">
+    <section class="glass panel reveal">
+      <div class="panel-head"><h2>Add open time</h2></div>
+      <form method="post" class="stack">{% csrf_token %}
+        {% if form.non_field_errors %}<div class="form-error" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+        {% for field in form %}<label class="field"><span>{{ field.label }}</span>{{ field }}{% if field.help_text %}<small class="help">{{ field.help_text }}</small>{% endif %}{% for e in field.errors %}<em class="field-error">{{ e }}</em>{% endfor %}</label>{% endfor %}
+        <button class="btn btn-primary" type="submit">{% include 'core/_icon.html' with name='plus' %} Publish slot</button>
+      </form>
+    </section>
+    <section class="glass panel reveal">
+      <div class="panel-head"><h2>Upcoming slots</h2><span class="count"><b>{{ slots|length }}</b> total</span></div>
+      {% regroup slots by date as days %}
+      {% for day in days %}
+        <h3 class="day-title">{{ day.grouper|date:'l, M j' }}</h3>
+        {% for slot in day.list %}
+        <div class="row-item slot-row">
+          <div class="row-main"><strong>{{ slot.start_time|time:'g:i A' }} – {{ slot.end_time|time:'g:i A' }}</strong>
+            <small>{% if slot.booking %}{% if slot.booking.status == 'pending' %}Request from{% else %}Booked by{% endif %} {{ slot.booking.student.user.get_full_name|default:slot.booking.student.user.email }}{% if slot.booking.notes %} · “{{ slot.booking.notes|truncatechars:50 }}”{% endif %}{% else %}Open for booking{% endif %}</small></div>
+          {% if slot.booking %}
+            <span class="badge badge-{{ slot.booking.tone }}">{% if slot.booking.status == 'pending' %}Pending{% else %}Booked{% endif %}</span>
+            {% if slot.booking.status == 'pending' %}<form method="post" action="{% url 'tutor_decide_booking' slot.booking.pk %}">{% csrf_token %}<input type="hidden" name="decision" value="approve"><input type="hidden" name="next" value="{% url 'manage_slots' %}"><button class="btn btn-primary btn-sm" type="submit">Approve</button></form>{% endif %}
+            <form method="post" action="{% if slot.booking.status == 'pending' %}{% url 'tutor_decide_booking' slot.booking.pk %}{% else %}{% url 'tutor_cancel_booking' slot.booking.pk %}{% endif %}">{% if slot.booking.status == 'pending' %}<input type="hidden" name="decision" value="decline"><input type="hidden" name="next" value="{% url 'manage_slots' %}">{% endif %}{% csrf_token %}<button class="btn btn-danger btn-sm" type="submit" data-confirm="Cancel this session and notify the student?">Cancel</button></form>
+          {% else %}
+            <span class="badge badge-open">Open</span>
+            <form method="post" action="{% url 'delete_slot' slot.pk %}">{% csrf_token %}<button class="btn btn-ghost btn-sm" type="submit" aria-label="Remove slot">{% include 'core/_icon.html' with name='trash' %}</button></form>
+          {% endif %}
+        </div>{% endfor %}
+      {% empty %}<p class="hint">You haven't published any upcoming slots yet.</p>{% endfor %}
+    </section>
+  </div>
+</div>
+{% endblock %}

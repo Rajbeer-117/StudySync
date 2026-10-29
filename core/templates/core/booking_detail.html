@@ -1,0 +1,57 @@
+{% extends 'core/base.html' %}
+{% block title %}Booking #{{ booking.pk }}{% endblock %}
+{% block content %}
+<div class="container page">
+  <a class="back" href="{% if role == 'student' %}{% url 'my_bookings' %}{% else %}{% url 'dashboard' %}{% endif %}">{% include 'core/_icon.html' with name='arrow-right' %} Back</a>
+  <div class="detail-grid">
+    <div class="detail-main">
+      <section class="profile glass reveal">
+        <div class="profile-head">
+          <span class="avatar avatar-xl {% if not slot.tutor_id %}avatar-square room-glyph{% endif %}">{% if slot.tutor_id %}{{ slot.tutor.display_name|slice:':1' }}{% else %}{% include 'core/_icon.html' with name='building' %}{% endif %}</span>
+          <div class="profile-title"><span class="kicker">Booking #{{ booking.pk }}</span>
+            <h1>{% if role == 'student' %}{{ slot.resource }}{% else %}{{ booking.student.user.get_full_name|default:booking.student.user.email }}{% endif %}</h1>
+            <div class="chips"><span class="badge badge-{{ booking.tone }}">{{ booking.display_status }}</span><span class="chip">{{ slot.kind|title }} session</span></div></div>
+        </div>
+        <dl class="details">
+          <div><dt>Date</dt><dd>{{ slot.date|date:'l, F j, Y' }}</dd></div>
+          <div><dt>Time</dt><dd>{{ slot.start_time|time:'g:i A' }} – {{ slot.end_time|time:'g:i A' }}</dd></div>
+          <div><dt>Location</dt><dd>{% if slot.tutor_id %}{{ slot.tutor.location }}{% else %}{{ slot.room.building }}{% endif %}</dd></div>
+          {% if role == 'tutor' %}<div><dt>Student</dt><dd>{{ booking.student.user.email }}</dd></div>{% endif %}
+          {% if booking.notes %}<div><dt>Notes</dt><dd>{{ booking.notes|linebreaksbr }}</dd></div>{% endif %}
+        </dl>
+        <ol class="timeline" aria-label="Booking progress">
+          {% for step in timeline %}<li class="is-{{ step.state }}"><i></i><div><strong>{{ step.label }}</strong>{% if step.note %}<small>{{ step.note|date:'M j, g:i A' }}</small>{% endif %}</div></li>{% endfor %}
+        </ol>
+      </section>
+
+      <section class="glass chat reveal" id="messages">
+        <div class="reviews-head"><h2>Messages</h2>{% if other_party.get_full_name %}<small>with {{ other_party.get_full_name }}</small>{% endif %}</div>
+        <div class="chat-list" data-chat>
+          {% for m in messages_list %}<div class="bubble {% if m.sender_id == user.id %}is-me{% endif %}"><p>{{ m.body|linebreaksbr }}</p><small>{{ m.sender.first_name|default:'User' }} · {{ m.created_at|date:'M j, g:i A' }}</small></div>
+          {% empty %}<p class="hint">{% if can_message %}No messages yet. Say hello or share what you want to cover.{% else %}Messaging is available once a tutor is attached to an active booking.{% endif %}</p>{% endfor %}
+        </div>
+        {% if can_message %}
+        <form method="post" action="{% url 'booking_message' booking.pk %}" class="chat-form">{% csrf_token %}{{ message_form.body }}<button class="btn btn-primary" type="submit" aria-label="Send message">{% include 'core/_icon.html' with name='send' %} Send</button></form>
+        {% endif %}
+      </section>
+    </div>
+
+    <aside class="slots glass reveal">
+      <div class="slots-head"><span class="feature-ico sm">{% include 'core/_icon.html' with name='sliders' %}</span><div><h2>Actions</h2><p>Manage this booking</p></div></div>
+      <div class="stack">
+        {% if role == 'tutor' and booking.status == 'pending' %}
+          <form method="post" action="{% url 'tutor_decide_booking' booking.pk %}">{% csrf_token %}<input type="hidden" name="decision" value="approve"><input type="hidden" name="next" value="{{ request.path }}"><button class="btn btn-primary btn-block" type="submit">{% include 'core/_icon.html' with name='check' %} Approve request</button></form>
+          <form method="post" action="{% url 'tutor_decide_booking' booking.pk %}">{% csrf_token %}<input type="hidden" name="decision" value="decline"><input type="hidden" name="next" value="{{ request.path }}"><button class="btn btn-danger btn-block" type="submit" data-confirm="Decline this request?">Decline</button></form>
+        {% endif %}
+        {% if role == 'student' and booking.status == 'confirmed' %}<a class="btn btn-glass btn-block" href="{% url 'booking_ics' booking.pk %}">{% include 'core/_icon.html' with name='download' %} Add to calendar</a>{% endif %}
+        {% if can_reschedule %}<a class="btn btn-glass btn-block" href="{% url 'reschedule' booking.pk %}">{% include 'core/_icon.html' with name='repeat' %} Reschedule</a>{% endif %}
+        {% if can_review %}<a class="btn btn-glass btn-block" href="{% url 'tutor_detail' slot.tutor_id %}#reviews">{% include 'core/_icon.html' with name='star' %} Leave a review</a>{% endif %}
+        {% if can_cancel and booking.status != 'pending' or can_cancel and role == 'student' %}
+          <form method="post" action="{% if role == 'student' %}{% url 'cancel_booking' booking.pk %}{% else %}{% url 'tutor_cancel_booking' booking.pk %}{% endif %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}"><button class="btn btn-danger btn-block" type="submit" data-confirm="Cancel this booking?">Cancel booking</button></form>
+        {% endif %}
+        {% if not can_cancel and not can_reschedule and not can_review and booking.status != 'pending' %}<p class="hint">No actions available for this booking.</p>{% endif %}
+      </div>
+    </aside>
+  </div>
+</div>
+{% endblock %}

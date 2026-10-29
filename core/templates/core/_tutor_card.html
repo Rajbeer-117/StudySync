@@ -1,0 +1,16 @@
+{% load static %}
+<article class="card tutor-card glass reveal">
+  <div class="card-top">
+    {% if tutor.photo %}<img class="avatar avatar-lg" src="{{ tutor.photo.url }}" alt="">{% else %}<span class="avatar avatar-lg">{{ tutor.display_name|slice:':1' }}</span>{% endif %}
+    {% if user.is_authenticated %}
+    <form method="post" action="{% url 'toggle_favorite' 'tutor' tutor.pk %}" class="fav-form">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <button class="fav-btn {% if tutor.pk in fav_tutors %}is-fav{% endif %}" type="submit" aria-label="{% if tutor.pk in fav_tutors %}Remove {{ tutor.display_name }} from favorites{% else %}Save {{ tutor.display_name }} to favorites{% endif %}" aria-pressed="{% if tutor.pk in fav_tutors %}true{% else %}false{% endif %}">{% include 'core/_icon.html' with name='heart' %}</button>
+    </form>
+    {% endif %}
+  </div>
+  <h3><a class="stretched" href="{% url 'tutor_detail' tutor.pk %}">{{ tutor.display_name }}</a></h3>
+  <div class="rating-line">{% include 'core/_stars.html' with value=tutor.avg_rating %}<span>{% if tutor.review_count %}{{ tutor.avg_rating|floatformat:1 }} <small>({{ tutor.review_count }})</small>{% else %}<small>New tutor</small>{% endif %}</span></div>
+  <div class="chips">{% for s in tutor.subject_list|slice:':3' %}<span class="chip">{{ s }}</span>{% endfor %}</div>
+  <p class="card-desc">{{ tutor.bio|truncatewords:14 }}</p>
+  <div class="card-foot"><span class="meta">{% include 'core/_icon.html' with name='pin' %} {{ tutor.location }}</span><span class="go">View slots {% include 'core/_icon.html' with name='arrow-up-right' %}</span></div>
+</article>
