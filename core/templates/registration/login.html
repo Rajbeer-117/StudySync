@@ -1,0 +1,22 @@
+{% extends 'core/base.html' %}
+{% block title %}Sign in{% endblock %}
+{% block content %}
+<section class="container auth">
+  <div class="auth-copy reveal"><span class="kicker">Welcome back</span><h1>Keep your next study goal within reach.</h1><p>Sign in to manage sessions and confirm a tutoring or study-room booking.</p>
+    <ul class="ticks"><li>{% include 'core/_icon.html' with name='check' %} Book in a few taps</li><li>{% include 'core/_icon.html' with name='check' %} Email confirmations &amp; calendar export</li><li>{% include 'core/_icon.html' with name='check' %} Save your favorite tutors</li></ul></div>
+  <div class="auth-card glass reveal">
+    <h2>Sign in</h2><p class="meta">Good to see you again.</p>
+    <form method="post" class="stack" action="{% url 'login' %}">{% csrf_token %}
+      {% if form.non_field_errors %}<div class="form-error" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+      {% for field in form %}
+        {% if field.field.widget.input_type == 'checkbox' %}<label class="check">{{ field }}<span>{{ field.label }}</span></label>
+        {% else %}<label class="field"><span>{{ field.label }}</span>{{ field }}{% for e in field.errors %}<em class="field-error">{{ e }}</em>{% endfor %}</label>{% endif %}
+      {% endfor %}
+      {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+      <button type="submit" class="btn btn-primary btn-block">Log in {% include 'core/_icon.html' with name='arrow-right' %}</button>
+    </form>
+    <p class="auth-links"><a href="{% url 'password_reset' %}">Forgot password?</a><a href="{% url 'catalog' %}">Continue as guest</a></p>
+    <p class="auth-links">New here? <a href="{% url 'register' %}">Create an account</a></p>
+  </div>
+</section>
+{% endblock %}

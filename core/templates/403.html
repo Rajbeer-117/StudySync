@@ -1,0 +1,8 @@
+{% extends 'core/base.html' %}
+{% block title %}Not allowed{% endblock %}
+{% block content %}
+<section class="container auth auth-single"><div class="auth-card glass reveal" style="text-align:center">
+  <span class="kicker">Error 403</span><h2>Not allowed</h2><p class="meta" style="justify-content:center">You don't have access to this page.</p>
+  <div class="row-actions" style="justify-content:center"><a class="btn btn-primary" href="{% url 'home' %}">Go home</a><a class="btn btn-glass" href="{% url 'catalog' %}">Explore</a></div>
+</div></section>
+{% endblock %}
