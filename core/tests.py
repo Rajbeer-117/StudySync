@@ -384,3 +384,27 @@ class V2FeatureTests(TestCase):
 
     def test_custom_404(self):
         self.assertContains(self.client.get('/nope-nothing/'), 'Page not found', status_code=404)
+
+
+class CrossPlatformTests(TestCase):
+    def test_manifest_is_installable(self):
+        resp = self.client.get(reverse('manifest'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp['Content-Type'], 'application/manifest+json')
+        data = resp.json()
+        self.assertEqual((data['scope'], data['display']), ('/', 'standalone'))
+        purposes = {(i['sizes'], i['purpose']) for i in data['icons'] if i['type'] == 'image/png'}
+        self.assertIn(('192x192', 'any'), purposes)
+        self.assertIn(('512x512', 'maskable'), purposes)
+
+    def test_service_worker_scope_and_offline_page(self):
+        resp = self.client.get(reverse('service_worker'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('javascript', resp['Content-Type'])
+        self.assertEqual(resp['Service-Worker-Allowed'], '/')
+        self.assertContains(self.client.get(reverse('offline')), "You're offline")
+
+    def test_head_has_mobile_and_desktop_meta(self):
+        html = self.client.get(reverse('home')).content.decode()
+        for needle in ('viewport-fit=cover', 'apple-touch-icon', 'rel="manifest"', 'apple-mobile-web-app-capable', 'theme-color'):
+            self.assertIn(needle, html)

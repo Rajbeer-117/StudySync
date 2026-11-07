@@ -12,6 +12,7 @@
   const current = () => (root.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
   function applyTheme(theme, persist) {
     root.setAttribute('data-theme', theme);
+    document.querySelectorAll('meta[name="theme-color"]').forEach(m => { m.removeAttribute('media'); m.content = theme === 'dark' ? '#030407' : '#E8D2B5'; });
     if (persist) { try { localStorage.setItem(KEY, theme); } catch (_) { /* storage blocked */ } }
     if (toggle) {
       toggle.setAttribute('aria-checked', String(theme === 'dark'));
@@ -118,6 +119,10 @@
     tick(); setInterval(tick, 30000);
   });
 
+  /* ---- show the right shortcut for the platform: ⌘K on Mac/iOS, Ctrl K on Windows/Linux/Android ---- */
+  const isApple = /mac|iphone|ipad|ipod/i.test(navigator.platform || navigator.userAgent);
+  document.querySelectorAll('.nav-search kbd').forEach(k => { k.textContent = isApple ? '⌘K' : 'Ctrl K'; });
+
   /* ---- command palette (Ctrl/Cmd+K) ---- */
   const palette = document.getElementById('palette');
   const pInput = document.getElementById('palette-input');
@@ -157,6 +162,28 @@
 
   /* ---- chat: scroll to latest ---- */
   document.querySelectorAll('[data-chat]').forEach(el => { el.scrollTop = el.scrollHeight; });
+
+  /* ---- installable app: service worker + install button (Chrome/Edge/Android) and Add-to-Home-Screen hint (iOS) ---- */
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+  }
+  const installBtn = document.querySelector('[data-install]');
+  const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  let deferredPrompt = null;
+  if (installBtn && !standalone) {
+    window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; installBtn.hidden = false; });
+    window.addEventListener('appinstalled', () => { installBtn.hidden = true; deferredPrompt = null; });
+    if (isIOS) installBtn.hidden = false;
+    installBtn.addEventListener('click', async () => {
+      if (deferredPrompt) { deferredPrompt.prompt(); await deferredPrompt.userChoice.catch(() => {}); deferredPrompt = null; installBtn.hidden = true; return; }
+      const tip = document.createElement('div');
+      tip.className = 'toast glass'; tip.setAttribute('role', 'status');
+      tip.innerHTML = '<p></p>'; tip.firstChild.textContent = 'To install: tap the Share button, then "Add to Home Screen".';
+      (document.querySelector('.toasts') || Object.assign(document.body.appendChild(document.createElement('div')), { className: 'toasts' })).appendChild(tip);
+      setTimeout(() => tip.remove(), 7000);
+    });
+  }
 
   /* ---- confirm prompts ---- */
   document.querySelectorAll('button[data-confirm]').forEach(btn => {

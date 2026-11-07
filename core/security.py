@@ -35,7 +35,7 @@ class SecurityHeadersMiddleware:
     """Adds a strict Content-Security-Policy and a few hardening headers (not on /admin/)."""
     POLICY = ("default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; "
               "script-src 'self'; font-src 'self'; connect-src 'self'; object-src 'none'; "
-              "base-uri 'self'; form-action 'self'; frame-ancestors 'none'")
+              "base-uri 'self'; form-action 'self'; frame-ancestors 'none'; manifest-src 'self'; worker-src 'self'")
 
     def __init__(self, get_response):
         self.get_response = get_response

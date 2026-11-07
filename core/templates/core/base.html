@@ -8,7 +8,16 @@
   <meta name="theme-color" content="#E8D2B5" media="(prefers-color-scheme: light)">
   <title>{% block title %}StudySync{% endblock %} · StudySync</title>
   <link rel="icon" href="{% static 'core/img/favicon.svg' %}" type="image/svg+xml">
-  <link rel="manifest" href="{% static 'core/manifest.webmanifest' %}">
+  <link rel="apple-touch-icon" href="{% static 'core/img/apple-touch-icon.png' %}">
+  <link rel="manifest" href="{% url 'manifest' %}">
+  <meta name="color-scheme" content="dark light">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="StudySync">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="application-name" content="StudySync">
+  <meta name="msapplication-TileColor" content="#030407">
+  <meta name="format-detection" content="telephone=no">
   <script src="{% static 'core/js/theme-init.js' %}"></script>
   <link rel="stylesheet" href="{% static 'core/css/style.css' %}">
   <script defer src="{% static 'core/js/main.js' %}"></script>
@@ -38,6 +47,7 @@
       {% if user.is_authenticated %}
         <a class="bell" href="{% url 'notifications' %}" aria-label="Notifications{% if unread_count %}, {{ unread_count }} unread{% endif %}">{% include 'core/_icon.html' with name='bell' %}{% if unread_count %}<span class="bell-badge">{% if unread_count > 9 %}9+{% else %}{{ unread_count }}{% endif %}</span>{% endif %}</a>
       {% endif %}
+      <button type="button" class="nav-install" data-install hidden aria-label="Install StudySync app">{% include 'core/_icon.html' with name='download' %}<span>Install</span></button>
       <button type="button" class="theme-switch" data-theme-toggle role="switch" aria-checked="false" aria-label="Switch to dark mode" title="Toggle dark / light">
         <span class="theme-knob">{% include 'core/_icon.html' with name='sun' %}{% include 'core/_icon.html' with name='moon' %}</span>
       </button>

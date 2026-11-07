@@ -2,7 +2,7 @@ from django.contrib.auth import views as auth_views
 from django.contrib.auth.views import LogoutView
 from django.urls import path
 
-from . import views
+from . import views, views_pwa
 
 urlpatterns = [
     path('', views.home, name='home'),
@@ -47,4 +47,7 @@ urlpatterns = [
     path('api/search/', views.api_search, name='api_search'),
     path('healthz/', views.healthz, name='healthz'),
     path('robots.txt', views.robots_txt, name='robots_txt'),
+    path('manifest.webmanifest', views_pwa.manifest, name='manifest'),
+    path('sw.js', views_pwa.service_worker, name='service_worker'),
+    path('offline/', views_pwa.offline, name='offline'),
 ]

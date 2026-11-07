@@ -12,6 +12,7 @@ Book tutors and study rooms in seconds. Students search real-time availability, 
 - **Tutor studio**: recurring weekly availability, request inbox, 7-week session chart, public profile.
 - **Reviews and favourites**, verified by completed sessions.
 - **Security**: login throttling, CSP, HSTS, secure cookies, CSRF, validated redirects, branded error pages.
+- **Works everywhere**: responsive from 320px phones to 4K desktops; installable app (PWA) on Windows, macOS, Linux, Android and iOS; safe-area, touch-target and high-contrast support; offline page.
 - **Design**: dark (black / cobalt, lime touches) and light (beige / sage, burgundy touches) liquid-glass themes.
 
 ## Run locally
