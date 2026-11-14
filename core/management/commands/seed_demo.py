@@ -1,4 +1,4 @@
-"""Idempotent demo-only seed data. All people and rooms below are fictional."""
+"""Idempotent demo-only seed data. Peer tutors are fictional; faculty profiles are marked demo."""
 from datetime import timedelta, time
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
@@ -8,7 +8,7 @@ from core.models import AvailabilitySlot, Booking, BookingMessage, Review, Room,
 
 User = get_user_model()
 
-ADVISOR_SUFFIX = ' (Demo)'  # fictional faculty advisors: one per required MAC course, office hours only
+ADVISOR_SUFFIX = ' (Demo)'  # faculty office-hours demo profiles, always visibly marked
 
 
 class Command(BaseCommand):
@@ -126,32 +126,31 @@ class Command(BaseCommand):
         self.stdout.write('These credentials and demo data are for local development only.')
 
     def _seed_advisors(self):
-        """Fictional faculty advisors, one per required MAC course, bookable during weekly office hours.
+        """Bookable faculty office hours, using names from the School of Computer Science faculty page.
 
-        Names are invented on purpose: real faculty have not agreed to appear in this demo.
+        This is a prototype: the profiles are demo illustrations and carry a visible "(Demo)" marker.
+        Courses, research areas and contact details are deliberately not stated; see the official page.
         """
-        advisors = [  # (name, subjects, bio, weekday 1=Tue 3=Thu, hour)
-            ('Dr. Avery Quinn', 'Internet Applications, Distributed Systems', 'Faculty advisor for COMP 8347 (demo). Office hours: web architecture and course project guidance.', 1, 13),
-            ('Dr. Morgan Ellis', 'Advanced Databases', 'Faculty advisor for COMP 8157 (demo). Office hours: schema design, indexing and query plans.', 3, 13),
-            ('Dr. Riley Banerjee', 'Advanced Systems Programming', 'Faculty advisor for COMP 8567 (demo). Office hours: C, processes and sockets.', 1, 14),
-            ('Dr. Casey Lindqvist', 'Advanced Software Engineering', 'Faculty advisor for COMP 8117 (demo). Office hours: requirements, testing and team process.', 3, 14),
-            ('Dr. Jamie Okonkwo', 'Networking and Data Security', 'Faculty advisor for COMP 8677 (demo). Office hours: protocols, cryptography and secure design.', 1, 15),
-            ('Dr. Taylor Brandt', 'Advanced Computing Concepts', 'Faculty advisor for COMP 8547 (demo). Office hours: algorithms and complexity.', 3, 15),
-            ('Dr. Sam Whitfield', 'Internship and Project', 'Faculty advisor for COMP 8967/8977 (demo). Office hours: project scope and progress evaluations.', 1, 16),
-            ('Dr. Robin Castellanos', 'Artificial Intelligence', 'Faculty advisor for the optional MAC AI specialization (demo). Office hours: course selection and project topics.', 3, 16),
+        advisors = [  # (name, weekday 1=Tue 3=Thu, hour)
+            ('Dr. Olena Syrotkina', 1, 13), ('Dr. Aznam Yacoub', 3, 13), ('Dr. Imran Ahmad', 1, 14),
+            ('Dr. Christie Ezeife', 3, 14), ('Dr. Ziad Kobti', 1, 15), ('Dr. Luis Rueda', 3, 15),
+            ('Dr. Alioune Ngom', 1, 16), ('Dr. Sherif Saad Ahmed', 3, 16),
         ]
-        for i, (name, subjects, bio, weekday, hour) in enumerate(advisors):
+        bio = ('Demo office-hours profile for the StudySync prototype. The person named is listed on the University of '
+               'Windsor School of Computer Science faculty page; they have not endorsed or taken part in this app. '
+               'For real office hours, use the official page.')
+        for i, (name, weekday, hour) in enumerate(advisors):
             full_name = name + ADVISOR_SUFFIX
             user = None
             if i == 0:
                 user, made = User.objects.get_or_create(username='advisor@example.test', defaults={
-                    'email': 'advisor@example.test', 'first_name': 'Avery', 'last_name': 'Quinn (Demo)'})
+                    'email': 'advisor@example.test', 'first_name': 'Olena', 'last_name': 'Syrotkina (Demo)'})
                 if made:
                     user.set_password('Demo12345!')
                     user.save()
             advisor, _ = Tutor.objects.get_or_create(display_name=full_name, defaults={
-                'user': user, 'subjects': subjects, 'bio': bio, 'location': '300 Ouellette',
-                'requires_approval': True, 'meeting_url': 'https://meet.example.test/advisor-%d' % (i + 1)})
+                'user': user, 'subjects': 'Faculty office hours', 'bio': bio, 'location': '300 Ouellette',
+                'requires_approval': True, 'meeting_url': ''})
             for week in range(0, 5):
                 day = timezone.localdate() + timedelta(days=1) + timedelta(days=(weekday - (timezone.localdate() + timedelta(days=1)).weekday()) % 7 + 7 * week)
                 AvailabilitySlot.objects.get_or_create(tutor=advisor, room=None, date=day,
