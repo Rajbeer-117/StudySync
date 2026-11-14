@@ -36,19 +36,19 @@ class Command(BaseCommand):
             alex_user.set_password('Demo12345!')
             alex_user.save()
 
-        tutors = [  # every demo tutor is a peer tutor from the Master of Applied Computing (MAC) program
-            ('Jordan Smith', 'Web Development, Django', 'Erie Hall', 'MAC student (Internet Applications). Django models, views, forms, REST and deployment.'),
-            ('Alex Lee', 'Operating Systems, C Programming', 'Erie Hall', 'MAC student (Advanced Systems Programming). Processes, pipes, signals and sockets in C.'),
-            ('Sam Rivera', 'Algorithms, Python', 'Lambton Tower', 'MAC student. Algorithm design, complexity analysis and Python problem solving.'),
-            ('Casey Chen', 'Databases, SQL', 'Leddy Library', 'MAC student (Advanced Database Topics). Query tuning, indexing and transactions.'),
-            ('Priya Nair', 'Machine Learning, Python', 'Lambton Tower', 'MAC student. Supervised learning, scikit-learn and model evaluation.'),
-            ('Omar Haddad', 'Data Mining, Statistics', '300 Ouellette', 'MAC student. Clustering, association rules and practical statistics for projects.'),
-            ('Mei Tanaka', 'Cloud and DevOps, Docker', 'Erie Hall', 'MAC student. Containers, CI/CD with GitHub Actions and cloud deployment.'),
-            ('Daniel Okafor', 'Computer Networks, Cybersecurity', '300 Ouellette', 'MAC student. TCP/IP, web security basics and secure coding habits.'),
-            ('Sofia Marino', 'Software Engineering, Testing', 'Leddy Library', 'MAC student. Requirements, UML, unit testing and team workflow with Git.'),
-            ('Lucas Bernard', 'JavaScript, Mobile Development', 'CAW Student Centre', 'MAC student. Front-end JavaScript, responsive UI and progressive web apps.'),
-            ('Hannah Kim', 'Computer Vision, Deep Learning', 'Lambton Tower', 'MAC student. CNNs, image datasets and PyTorch for course projects.'),
-            ('Ibrahim Yusuf', 'Big Data, Cloud Computing', '300 Ouellette', 'MAC student. Spark, data pipelines and working with large datasets.'),
+        tutors = [  # fictional MAC peer tutors; subjects follow the real MAC course list (COMP codes in each bio)
+            ('Jordan Smith', 'Internet Applications, Distributed Systems', 'Leddy Library', 'MAC peer tutor for COMP 8347: Django models, views, forms, REST and deployment.'),
+            ('Alex Lee', 'Advanced Systems Programming, C', 'Erie Hall', 'MAC peer tutor for COMP 8567: processes, pipes, signals and sockets in C on Linux.'),
+            ('Sam Rivera', 'Internship and Project, Python', 'Lambton Tower', 'MAC peer tutor for COMP 8967/8977: scoping a project, Git workflow and progress evaluations.'),
+            ('Casey Chen', 'Advanced Databases, SQL', 'Leddy Library', 'MAC peer tutor for COMP 8157: query tuning, indexing, transactions and schema design.'),
+            ('Priya Nair', 'Artificial Intelligence, Machine Learning', 'Lambton Tower', 'MAC peer tutor for COMP 8700 and 8740: search, supervised learning and model evaluation.'),
+            ('Omar Haddad', 'Statistical Learning, Data Mining', '300 Ouellette', 'MAC peer tutor for COMP 8590: regression, clustering and practical statistics for projects.'),
+            ('Mei Tanaka', 'Advanced Computing Concepts, Algorithms', 'Erie Hall', 'MAC peer tutor for COMP 8547: algorithm design, complexity and problem solving.'),
+            ('Daniel Okafor', 'Networking and Data Security', '300 Ouellette', 'MAC peer tutor for COMP 8677: TCP/IP, cryptography basics and secure web practices.'),
+            ('Sofia Marino', 'Advanced Software Engineering, Testing', 'Leddy Library', 'MAC peer tutor for COMP 8117: requirements, UML, unit testing and team workflow.'),
+            ('Lucas Bernard', 'Cloud and DevOps, JavaScript', 'CAW Student Centre', 'MAC peer tutor: Docker, CI/CD with GitHub Actions, and front-end JavaScript.'),
+            ('Hannah Kim', 'Deep Learning, Computer Vision', 'Lambton Tower', 'MAC peer tutor for COMP 8610: neural networks, CNNs and PyTorch for course projects.'),
+            ('Ibrahim Yusuf', 'Natural Language Processing, AI', '300 Ouellette', 'MAC peer tutor for COMP 8730: text processing, embeddings and language-model basics.'),
         ]
         online = {'Jordan Smith': 'https://meet.example.test/jordan-smith', 'Sam Rivera': 'https://meet.example.test/sam-rivera',
                   'Priya Nair': 'https://meet.example.test/priya-nair', 'Mei Tanaka': 'https://meet.example.test/mei-tanaka',
@@ -71,17 +71,17 @@ class Command(BaseCommand):
                 tutor.user, tutor.requires_approval = alex_user, True
                 tutor.save(update_fields=['user', 'requires_approval'])
 
-        rooms = [
-            ('Room 214', 'Leddy Library', 4, 'Whiteboard, Wi-Fi, power outlets', 'A focused study room for small teams.'),
-            ('Room 308', 'Leddy Library', 6, 'Display, whiteboard, Wi-Fi', 'Great for project work and group discussion.'),
+        rooms = [  # Leddy rooms follow the library's published types: group rooms hold 4, personal rooms are single-seat
+            ('Group Study Room 4111C', 'Leddy Library', 4, 'Whiteboard, Wi-Fi; sign out the key at the Information Desk', 'Fourth-floor group room for up to four people.'),
+            ('Group Study Room 1', 'Leddy Library', 4, 'Whiteboard, Wi-Fi, power outlets', 'Bookable group room (up to 4 people, max 3 hours per day).'),
+            ('Group Study Room 2', 'Leddy Library', 4, 'Whiteboard, Wi-Fi, power outlets', 'Bookable group room (up to 4 people, max 3 hours per day).'),
+            ('Personal Study Room 1', 'Leddy Library', 1, 'Desk, Wi-Fi, power outlet', 'Quiet single-person room for focused work.'),
+            ('Personal Study Room 2', 'Leddy Library', 1, 'Desk, Wi-Fi, power outlet', 'Quiet single-person room for focused work.'),
             ('Collaboration Pod', 'Erie Hall', 3, 'Wi-Fi, charging outlets', 'A quiet pod for quick study sessions.'),
-            ('Room 112', 'Leddy Library', 2, 'Desk, Wi-Fi, power outlets', 'A small quiet room for pairs and one-on-one study.'),
-            ('Room 420', 'Leddy Library', 10, 'Projector, whiteboards, Wi-Fi', 'Large room for study groups and presentation practice.'),
+            ('Coding Studio', 'Erie Hall', 5, 'Dual monitors, whiteboard, Wi-Fi', 'Pair programming and project work for computer science students.'),
             ('Lab Commons', 'Lambton Tower', 8, 'Whiteboards, Wi-Fi, power outlets', 'Open group space beside the computing labs.'),
             ('Seminar Room A', '300 Ouellette', 12, 'Projector, video conferencing, Wi-Fi', 'Seats a full MAC tutorial group or presentation rehearsal.'),
             ('Project Room 2', '300 Ouellette', 6, 'Display, whiteboard, Wi-Fi', 'Built for group-project meetings and progress-evaluation practice.'),
-            ('Coding Studio', 'Erie Hall', 5, 'Dual monitors, whiteboard, Wi-Fi', 'Pair programming and hackathon prep.'),
-            ('Quiet Pod B', 'Erie Hall', 2, 'Wi-Fi, charging outlets', 'Sound-dampened pod for focused solo or pair work.'),
             ('Student Centre Lounge 3', 'CAW Student Centre', 8, 'Sofas, whiteboard, Wi-Fi', 'Relaxed group study with a casual feel.'),
         ]
         for name, building, capacity, amenities, description in rooms:
