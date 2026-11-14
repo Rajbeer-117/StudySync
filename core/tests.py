@@ -735,3 +735,12 @@ class V3InterfaceTests(V3Base):
         self.client.force_login(self.tutor_user)
         self.assertContains(self.client.get(reverse('dashboard')), 'Analytics')
         self.assertContains(self.client.get(reverse('booking_detail', args=[booking.pk])), 'Mark as no-show')
+
+
+class FacultyPageTests(TestCase):
+    def test_faculty_page_is_public_and_lists_names_without_tutor_profiles(self):
+        resp = self.client.get(reverse('faculty'))
+        self.assertContains(resp, 'Dr. Aznam Yacoub')
+        self.assertContains(resp, 'Dr. Olena Syrotkina')
+        self.assertContains(resp, 'not StudySync tutors')
+        self.assertFalse(Tutor.objects.filter(display_name__icontains='Yacoub').exists())

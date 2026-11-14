@@ -703,3 +703,6 @@ main { padding-bottom: env(safe-area-inset-bottom); }
 .stat span{opacity:.75;font-size:.85rem}
 .two-col{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:16px}
 .two-col .bar{grid-template-columns:56px 1fr 28px;margin:6px 0}
+
+.faculty-list{list-style:none;margin:0 0 14px;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px 18px}
+.faculty-list li{padding:8px 0;border-bottom:1px solid rgba(255,255,255,.1)}

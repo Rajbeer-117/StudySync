@@ -7,6 +7,7 @@ from . import views, views_pwa
 urlpatterns = [
     path('', views.home, name='home'),
     path('explore/', views.catalog, name='catalog'),
+    path('faculty/', views.faculty, name='faculty'),
     path('tutors/<int:pk>/', views.tutor_detail, name='tutor_detail'),
     path('rooms/<int:pk>/', views.room_detail, name='room_detail'),
     path('tutors/<int:pk>/review/', views.submit_review, name='submit_review'),

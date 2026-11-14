@@ -94,6 +94,12 @@ def _recent_items(request):
 
 
 # --------------------------------------------------------------------------- discovery
+def faculty(request):
+    """Public reference list of School of Computer Science faculty (not tutors)."""
+    from .faculty import FACULTY, SOURCE_URL
+    return render(request, 'core/faculty.html', {'faculty': FACULTY, 'source_url': SOURCE_URL})
+
+
 def home(request):
     open_now = list(services.available_slots()[:6])
     top_tutors = _rated(Tutor.objects.filter(is_active=True)).order_by(F('avg_rating').desc(nulls_last=True), 'display_name')[:3]
