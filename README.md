@@ -29,9 +29,9 @@ python manage.py migrate
 python manage.py seed_demo          # optional sample data
 python manage.py runserver
 ```
-Demo data models the University of Windsor MAC program: the five Group 11 members as peer tutors with MAC course subjects, 11 study rooms (Leddy Library, Erie Hall, Lambton Tower, 300 Ouellette, CAW), and 10 faculty office-hours profiles. Professor names come from the School of Computer Science faculty page; the office-hour slots are illustrative and those people have not taken part in building this app.
+Seed data uses real University of Windsor information. Rooms are the bookable Leddy Library study rooms (group rooms 218C/D, 318A-D, 206-209, 310, 311 and 4111C for four people, plus personal study rooms), with equipment and booking rules copied from leddy.uwindsor.ca. Tutors are ten School of Computer Science faculty members; their titles, offices and research interests come from their public profile pages. The office-hour slots and sample bookings are illustrative, and the faculty have not taken part in building this app.
 
-Demo logins (password `Demo12345!`): `student@example.test`, `tutor@example.test` (Vrajkumar Patel), `alex@example.test` (Rajbeer Kaur Dutta) and `advisor@example.test` (Olena Syrotkina, faculty office hours); the last two approve requests. Local development only. Create an admin with `python manage.py createsuperuser` (site at `/admin/`).
+Logins (password `Demo12345!`): `student@example.test`; `tutor@example.test` (Dr. Ziad Kobti) and `advisor@example.test` (Dr. Olena Syrotkina), who both approve requests. Local development only.
 
 ## Production
 ```bash

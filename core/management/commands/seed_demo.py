@@ -1,197 +1,182 @@
-"""Idempotent demo-only seed data. Peer tutors are the Group 11 members; faculty profiles carry illustrative office hours."""
+"""Idempotent seed data for local development.
+
+Rooms are the University of Windsor Leddy Library study rooms listed at leddy.uwindsor.ca.
+Tutors are School of Computer Science faculty; titles, offices and research interests are copied from their
+public profile pages. Office-hour slots and the sample bookings are illustrative only.
+"""
 from datetime import timedelta, time
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from core import services
-from core.models import AvailabilitySlot, Booking, BookingMessage, Review, Room, Student, Tutor, WaitlistEntry
+from core.models import AvailabilitySlot, Booking, BookingMessage, Room, Student, Tutor, WaitlistEntry
 
 User = get_user_model()
 
-ADVISOR_SUBJECTS = 'Faculty office hours'  # marks the faculty profiles so they get weekly office hours, not peer-tutor slots
+PROFILE_BASE = 'https://www.uwindsor.ca/science/computerscience/'
+# (name, subjects, location, title, office, research interests, profile path, weekday 1=Tue 3=Thu, hour)
+FACULTY = [
+    ('Dr. Prashanth Cheluvasai Ranga', 'Systems Programming, Operating Systems, Database Design, High-Performance Computing, Algorithms',
+     '300 Ouellette', 'Assistant Professor', '4011, 300 Ouellette',
+     'Systems programming; operating systems; database design; high-performance computing; design and analysis of algorithms.',
+     '242400/dr-prashanth-cheluvasai-ranga', 1, 13),
+    ('Dr. Kalyani Selvarajah', 'Computer Science', '300 Ouellette', 'Assistant Professor', '4033, 300 Ouellette', '',
+     '242401/dr-kalyani-selvarajah', 3, 13),
+    ('Dr. Ziad Kobti', 'Evolutionary Computation, Multi-Agent Simulation, Decision Support, Social Network Analysis',
+     'Lambton Tower', 'Professor and Director, School of Computer Science', 'L.T. 5116 / 300 Ouellette 4007',
+     'Evolutionary computation (genetic and cultural algorithms, co-evolution, PSO); multi-agent simulation of artificial human societies; '
+     'decision support systems in health care and safety; social network analysis.', '1060/dr-ziad', 1, 14),
+    ('Dr. Aznam Yacoub', 'Cognitive Modelling, Computational Intelligence, Evolutionary Algorithms, Systems Engineering',
+     '300 Ouellette', 'Assistant Professor', '4017, 300 Ouellette',
+     'Cognitive modelling and computing; computational intelligence and decision-making; evolutionary algorithms; software and system engineering methodologies; '
+     'modelling and simulation of complex smart and cyber systems; formal modelling and checking; knowledge representation and reasoning; '
+     'robotics and cybernetics; human-computer interaction; metaverse design and integration.', '242402/dr-aznam-yacoub', 3, 14),
+    ('Dr. Shaoquan Jiang', 'Network Security, Blockchain, Cryptographic Protocols, Post-Quantum Security',
+     '300 Ouellette', 'Assistant Professor', '4024, 300 Ouellette',
+     'Network security; blockchain; cryptographic protocols; quantum and post-quantum security; cyber security education.',
+     '242398/dr-shaoquan-jiang', 1, 15),
+    ('Dr. Boubakeur Boufama', 'Computer Vision, Image Processing, Computer Graphics, Pattern Recognition',
+     'Lambton Tower', 'Professor', 'L.T. 8113',
+     'Computer vision; image processing; computer graphics; three-dimensional computer vision; pattern recognition.',
+     '1059/dr-boubakeur-boufama', 3, 15),
+    ('Dr. Olena Syrotkina', 'Machine Learning, Data Mining, Big Data Analytics, Discrete Mathematics',
+     'Lambton Tower', 'Professor', 'Lambton Tower',
+     'SCADA diagnostics; big data analytics and data mining; discrete mathematics; machine learning algorithms.',
+     '318557/dr-olena-syrotkina', 1, 16),
+    ('Dr. Imran Ahmad', 'Computer Science', 'Lambton Tower', 'Professor', '8114, Lambton Tower', '',
+     '1064/dr-imran-ahmad', 3, 16),
+    ('Dr. Christie Ezeife', 'Data Mining, Database Systems, Recommendation Systems, Social Network Analysis',
+     'Lambton Tower', 'Professor', '5103, Lambton Tower',
+     'Physical design of database and warehouse systems; sequential pattern mining; recommendation systems for the web, e-commerce and education; social network analysis.',
+     '1062/dr-christie-ezeife', 1, 11),
+    ('Dr. Luis Rueda', 'Machine Learning, Deep Learning, Bioinformatics, Data Security',
+     'Lambton Tower', 'Professor', '5110, Lambton Tower',
+     'Machine learning, pattern recognition and deep learning; computational biology and bioinformatics; biological knowledge discovery; data security and user authentication.',
+     '1033/dr-luis-rueda', 3, 11),
+]
+FACULTY_NAMES = [row[0] for row in FACULTY]
+
+GROUP_RULES = 'Group study room for up to 4 people. Up to 3 hours per day, bookable up to 30 days ahead.'
+# Leddy Library bookable rooms and the equipment listed for each (leddy.uwindsor.ca/spaces-bookings/study-rooms)
+ROOMS = [
+    ('Group Study Room 218C', 'Leddy Library', 4, 'Blackboard', 'Leddy Library main building. ' + GROUP_RULES),
+    ('Group Study Room 218D', 'Leddy Library', 4, 'Blackboard', 'Leddy Library main building. ' + GROUP_RULES),
+    ('Group Study Room 318A', 'Leddy Library', 4, 'Blackboard, Whiteboard', 'Leddy Library main building. ' + GROUP_RULES),
+    ('Group Study Room 318B', 'Leddy Library', 4, 'Blackboard, Whiteboard', 'Leddy Library main building. ' + GROUP_RULES),
+    ('Group Study Room 318C', 'Leddy Library', 4, 'Blackboard, Whiteboard', 'Leddy Library main building. ' + GROUP_RULES),
+    ('Group Study Room 318D', 'Leddy Library', 4, 'Blackboard, Whiteboard', 'Leddy Library main building. ' + GROUP_RULES),
+    ('Group Study Room 206', 'Leddy Library', 4, 'Whiteboard', 'Leddy Library west building. ' + GROUP_RULES),
+    ('Group Study Room 207', 'Leddy Library', 4, 'Display Screen, Whiteboard', 'Leddy Library west building. ' + GROUP_RULES),
+    ('Group Study Room 208', 'Leddy Library', 4, '', 'Leddy Library west building. ' + GROUP_RULES),
+    ('Group Study Room 209', 'Leddy Library', 4, 'Whiteboard', 'Leddy Library west building. ' + GROUP_RULES),
+    ('Group Study Room 310', 'Leddy Library', 4, 'Whiteboard', 'Leddy Library west building. ' + GROUP_RULES),
+    ('Group Study Room 311', 'Leddy Library', 4, 'Whiteboard', 'Leddy Library west building. ' + GROUP_RULES),
+    ('Group Study Room 4111C', 'Leddy Library', 4, 'Key from the Information Desk', 'Sign out the key at the Information Desk. ' + GROUP_RULES),
+    ('Personal Study Rooms, 2nd Floor', 'Leddy Library', 1, '', 'Quiet single-person rooms for personal use only. Up to 3 hours per booking, bookable up to 30 days ahead.'),
+    ('Personal Study Rooms, 3rd Floor', 'Leddy Library', 1, '', 'Quiet single-person rooms for personal use only. Up to 3 hours per booking, bookable up to 30 days ahead.'),
+]
+
+
+def _purge_tutor(tutor):
+    """Bookings protect their slots, so clear them before removing a tutor."""
+    Booking.objects.filter(slot__tutor=tutor).delete()
+    AvailabilitySlot.objects.filter(tutor=tutor).delete()
+    tutor.delete()
 
 
 class Command(BaseCommand):
-    help = 'Create sample StudySync users, tutors, rooms, and upcoming availability.'
+    help = 'Create sample StudySync users, faculty tutors, Leddy Library rooms, and upcoming availability.'
 
     def handle(self, *args, **options):
+        self._remove_old_people_and_rooms()
         student, made = User.objects.get_or_create(
-            username='student@example.test', defaults={'email': 'student@example.test', 'first_name': 'Taylor', 'last_name': 'Morgan'}
-        )
+            username='student@example.test', defaults={'email': 'student@example.test', 'first_name': 'Taylor', 'last_name': 'Morgan'})
         if made:
             student.set_password('Demo12345!')
             student.save()
         Student.objects.get_or_create(user=student, defaults={'bio': 'Master of Applied Computing (MAC) student, University of Windsor.'})
 
-        tutor_user, made = User.objects.get_or_create(
-            username='tutor@example.test', defaults={'email': 'tutor@example.test', 'first_name': 'Vrajkumar', 'last_name': 'Patel'}
-        )
-        if made:
-            tutor_user.set_password('Demo12345!')
-            tutor_user.save()
+        logins = {'Dr. Ziad Kobti': ('tutor@example.test', 'Ziad', 'Kobti'), 'Dr. Olena Syrotkina': ('advisor@example.test', 'Olena', 'Syrotkina')}
+        users = {}
+        for name, (email, first, last) in logins.items():
+            user, made = User.objects.get_or_create(username=email, defaults={'email': email, 'first_name': first, 'last_name': last})
+            if made:
+                user.set_password('Demo12345!')
+            user.first_name, user.last_name = first, last
+            user.save()
+            users[name] = user
 
-        alex_user, made = User.objects.get_or_create(
-            username='alex@example.test', defaults={'email': 'alex@example.test', 'first_name': 'Rajbeer', 'last_name': 'Kaur Dutta'})
-        if made:
-            alex_user.set_password('Demo12345!')
-            alex_user.save()
+        for name, subjects, location, title, office, interests, path, weekday, hour in FACULTY:
+            bio = f'{title}, School of Computer Science, University of Windsor. Office: {office}.'
+            if interests:
+                bio += f' Research interests: {interests}'
+            bio += f' Profile: {PROFILE_BASE}{path}'
+            tutor, _ = Tutor.objects.get_or_create(display_name=name, defaults={'subjects': subjects, 'location': location, 'bio': bio})
+            tutor.subjects, tutor.location, tutor.bio = subjects, location, bio
+            tutor.requires_approval, tutor.meeting_url = True, ''
+            if name in users:
+                tutor.user = users[name]
+            tutor.save()
+            first_day = timezone.localdate() + timedelta(days=1)
+            for week in range(5):
+                day = first_day + timedelta(days=(weekday - first_day.weekday()) % 7 + 7 * week)
+                AvailabilitySlot.objects.get_or_create(tutor=tutor, room=None, date=day, start_time=time(hour, 0), end_time=time(hour + 1, 0))
 
-        self._remove_old_fictional_tutors()
-        tutors = [  # real Group 11 members (MAC students) as peer tutors; subjects follow what each built for COMP 8347
-            ('Vrajkumar Patel', 'Internet Applications, Advanced Systems Programming', 'Leddy Library', 'Group 11 member and MAC student. Built the StudySync booking engine and tests. Peer help with Django, C and Linux.'),
-            ('Rajbeer Kaur Dutta', 'Advanced Databases, Cloud and DevOps', 'Erie Hall', 'Group 11 member and MAC student. Built the StudySync data models, migrations and Docker setup. Peer help with schemas, SQL and deployment.'),
-            ('Harsh Patel', 'Internet Applications, Python', 'Lambton Tower', 'Group 11 member and MAC student. Built StudySync search, uploads and sessions. Peer help with Django forms, search and file handling.'),
-            ('Krishkumar Patel', 'Networking and Data Security, Internet Applications', 'Leddy Library', 'Group 11 member and MAC student. Built StudySync authentication, forms and security. Peer help with login flows and secure web practices.'),
-            ('Bhavya Patel', 'Internet Applications, JavaScript', '300 Ouellette', 'Group 11 member and MAC student. Built the StudySync templates and CSS design. Peer help with HTML, CSS and front-end JavaScript.'),
-        ]
-        online = {'Vrajkumar Patel': 'https://meet.example.test/vrajkumar-patel', 'Harsh Patel': 'https://meet.example.test/harsh-patel',
-                  'Bhavya Patel': 'https://meet.example.test/bhavya-patel'}
-        for i, (name, subjects, location, bio) in enumerate(tutors):
-            tutor, _ = Tutor.objects.get_or_create(display_name=name, defaults={
-                'user': tutor_user if i == 0 else None,
-                'subjects': subjects, 'location': location, 'bio': bio,
-            })
-            if (tutor.subjects, tutor.bio, tutor.location) != (subjects, bio, location):  # refresh older demo rows
-                tutor.subjects, tutor.bio, tutor.location = subjects, bio, location
-                tutor.save(update_fields=['subjects', 'bio', 'location'])
-            if name in online and not tutor.meeting_url:
-                tutor.meeting_url = online[name]
-                tutor.save(update_fields=['meeting_url'])
-            if i == 0 and tutor.user_id is None:
-                tutor.user = tutor_user
-                tutor.save(update_fields=['user'])
-            if name == 'Rajbeer Kaur Dutta' and (tutor.user_id is None or not tutor.requires_approval):
-                tutor.user, tutor.requires_approval = alex_user, True
-                tutor.save(update_fields=['user', 'requires_approval'])
-
-        rooms = [  # Leddy rooms follow the library's published types: group rooms hold 4, personal rooms are single-seat
-            ('Group Study Room 4111C', 'Leddy Library', 4, 'Whiteboard, Wi-Fi; sign out the key at the Information Desk', 'Fourth-floor group room for up to four people.'),
-            ('Group Study Room 1', 'Leddy Library', 4, 'Whiteboard, Wi-Fi, power outlets', 'Bookable group room (up to 4 people, max 3 hours per day).'),
-            ('Group Study Room 2', 'Leddy Library', 4, 'Whiteboard, Wi-Fi, power outlets', 'Bookable group room (up to 4 people, max 3 hours per day).'),
-            ('Personal Study Room 1', 'Leddy Library', 1, 'Desk, Wi-Fi, power outlet', 'Quiet single-person room for focused work.'),
-            ('Personal Study Room 2', 'Leddy Library', 1, 'Desk, Wi-Fi, power outlet', 'Quiet single-person room for focused work.'),
-            ('Collaboration Pod', 'Erie Hall', 3, 'Wi-Fi, charging outlets', 'A quiet pod for quick study sessions.'),
-            ('Coding Studio', 'Erie Hall', 5, 'Dual monitors, whiteboard, Wi-Fi', 'Pair programming and project work for computer science students.'),
-            ('Lab Commons', 'Lambton Tower', 8, 'Whiteboards, Wi-Fi, power outlets', 'Open group space beside the computing labs.'),
-            ('Seminar Room A', '300 Ouellette', 12, 'Projector, video conferencing, Wi-Fi', 'Seats a full MAC tutorial group or presentation rehearsal.'),
-            ('Project Room 2', '300 Ouellette', 6, 'Display, whiteboard, Wi-Fi', 'Built for group-project meetings and progress-evaluation practice.'),
-            ('Student Centre Lounge 3', 'CAW Student Centre', 8, 'Sofas, whiteboard, Wi-Fi', 'Relaxed group study with a casual feel.'),
-        ]
-        for name, building, capacity, amenities, description in rooms:
-            Room.objects.get_or_create(name=name, building=building, defaults={
-                'capacity': capacity, 'amenities': amenities, 'description': description,
-            })
+        for name, building, capacity, amenities, description in ROOMS:
+            room, _ = Room.objects.get_or_create(name=name, building=building, defaults={'capacity': capacity})
+            room.capacity, room.amenities, room.description, room.is_active = capacity, amenities, description, True
+            room.save()
 
         count = 0
         starts = [time(10, 0), time(11, 30), time(14, 0), time(15, 30), time(9, 0), time(17, 0)]
         ends = [time(11, 0), time(12, 30), time(15, 0), time(16, 30), time(10, 0), time(18, 0)]
         for delta in range(1, 15):
             day = timezone.localdate() + timedelta(days=delta)
-            if day.weekday() >= 5:  # tutors work weekdays; rooms also open Saturday mornings
-                if day.weekday() == 5:
-                    for room in Room.objects.filter(is_active=True):
-                        for start, end in zip(starts[:2], ends[:2]):
-                            _, created = AvailabilitySlot.objects.get_or_create(
-                                room=room, tutor=None, date=day, start_time=start, end_time=end)
-                            count += int(created)
+            if day.weekday() == 6:
                 continue
-            for tutor in Tutor.objects.filter(is_active=True).exclude(subjects=ADVISOR_SUBJECTS):
-                for start, end in zip(starts[:5], ends[:5]):
-                    _, created = AvailabilitySlot.objects.get_or_create(
-                        tutor=tutor, room=None, date=day, start_time=start, end_time=end
-                    )
-                    count += int(created)
+            slots = list(zip(starts[:2], ends[:2])) if day.weekday() == 5 else list(zip(starts, ends))
             for room in Room.objects.filter(is_active=True):
-                for start, end in zip(starts, ends):
-                    _, created = AvailabilitySlot.objects.get_or_create(
-                        room=room, tutor=None, date=day, start_time=start, end_time=end
-                    )
+                for start, end in slots:
+                    _, created = AvailabilitySlot.objects.get_or_create(room=room, tutor=None, date=day, start_time=start, end_time=end)
                     count += int(created)
-        self._seed_advisors()
-        self._seed_history(student)
+        self._seed_history(student, users)
         self._seed_activity()
-        self.stdout.write(self.style.SUCCESS(f'Demo ready; added {count} availability slots.'))
-        self.stdout.write('Faculty advisor (demo, approves requests): advisor@example.test / Demo12345!')
+        self.stdout.write(self.style.SUCCESS(f'Ready; added {count} room slots.'))
         self.stdout.write('Student: student@example.test / Demo12345!')
-        self.stdout.write('Tutor (Vrajkumar Patel): tutor@example.test / Demo12345!')
-        self.stdout.write('Tutor (Rajbeer Kaur Dutta, approves requests): alex@example.test / Demo12345!')
+        self.stdout.write('Faculty (Dr. Ziad Kobti, approves requests): tutor@example.test / Demo12345!')
+        self.stdout.write('Faculty (Dr. Olena Syrotkina, approves requests): advisor@example.test / Demo12345!')
         self.stdout.write(f'Totals: {Tutor.objects.count()} tutors, {Room.objects.count()} rooms, {AvailabilitySlot.objects.count()} slots, {Booking.objects.count()} bookings.')
-        self.stdout.write('These credentials and demo data are for local development only.')
+        self.stdout.write('These credentials are for local development only.')
 
-    def _remove_old_fictional_tutors(self):
-        """Earlier demo versions used invented peer tutors; remove them so only real people remain."""
-        old = ['Jordan Smith', 'Alex Lee', 'Sam Rivera', 'Casey Chen', 'Priya Nair', 'Omar Haddad', 'Mei Tanaka',
-               'Daniel Okafor', 'Sofia Marino', 'Lucas Bernard', 'Hannah Kim', 'Ibrahim Yusuf']
-        for tutor in Tutor.objects.filter(display_name__in=old):
-            Booking.objects.filter(slot__tutor=tutor).delete()   # bookings protect their slots, so clear them first
-            AvailabilitySlot.objects.filter(tutor=tutor).delete()
-            tutor.delete()
-
-    def _remove_old_advisors(self, keep):
-        """Drop earlier faculty profiles (the invented or '(Demo)' ones) that are not in the current list."""
-        for tutor in Tutor.objects.filter(subjects=ADVISOR_SUBJECTS).exclude(display_name__in=keep):
-            Booking.objects.filter(slot__tutor=tutor).delete()
-            AvailabilitySlot.objects.filter(tutor=tutor).delete()
-            tutor.delete()
-        for tutor in Tutor.objects.filter(display_name__endswith=' (Demo)'):
-            Booking.objects.filter(slot__tutor=tutor).delete()
-            AvailabilitySlot.objects.filter(tutor=tutor).delete()
-            tutor.delete()
-
-    def _seed_advisors(self):
-        """Faculty office hours for ten members of the School of Computer Science, named as on its faculty page.
-
-        The slots are illustrative for this prototype; the official page is the authority on real office hours.
-        """
-        advisors = [  # (name, weekday 1=Tue 3=Thu, hour)
-            ('Dr. Prashanth Cheluvasai Ranga', 1, 13), ('Dr. Kalyani Selvarajah', 3, 13), ('Dr. Ziad Kobti', 1, 14),
-            ('Dr. Aznam Yacoub', 3, 14), ('Dr. Shaoquan Jiang', 1, 15), ('Dr. Boubakeur Boufama', 3, 15),
-            ('Dr. Olena Syrotkina', 1, 16), ('Dr. Imran Ahmad', 3, 16), ('Dr. Christie Ezeife', 1, 11), ('Dr. Luis Rueda', 3, 11),
-        ]
-        bio = ('Faculty office hours, School of Computer Science, University of Windsor. Slots here are illustrative '
-               'for the StudySync prototype; check the official faculty page for real office hours.')
-        self._remove_old_advisors([name for name, _, _ in advisors])
-        for i, (name, weekday, hour) in enumerate(advisors):
-            user = None
-            if name == 'Dr. Olena Syrotkina':
-                user, made = User.objects.get_or_create(username='advisor@example.test', defaults={
-                    'email': 'advisor@example.test', 'first_name': 'Olena', 'last_name': 'Syrotkina'})
-                if made:
-                    user.set_password('Demo12345!')
-                    user.save()
-                elif user.last_name != 'Syrotkina':
-                    user.last_name = 'Syrotkina'
-                    user.save(update_fields=['last_name'])
-            advisor, _ = Tutor.objects.get_or_create(display_name=name, defaults={
-                'user': user, 'subjects': ADVISOR_SUBJECTS, 'bio': bio, 'location': '300 Ouellette',
-                'requires_approval': True, 'meeting_url': ''})
-            if user and advisor.user_id is None:
-                advisor.user = user
-                advisor.save(update_fields=['user'])
-            first = timezone.localdate() + timedelta(days=1)
-            for week in range(0, 5):
-                day = first + timedelta(days=(weekday - first.weekday()) % 7 + 7 * week)
-                AvailabilitySlot.objects.get_or_create(tutor=advisor, room=None, date=day,
-                                                       start_time=time(hour, 0), end_time=time(hour + 1, 0))
+    def _remove_old_people_and_rooms(self):
+        """Earlier seeds used invented tutors, Group 11 members, '(Demo)' profiles and made-up rooms; remove them."""
+        for tutor in Tutor.objects.exclude(display_name__in=FACULTY_NAMES):
+            _purge_tutor(tutor)
+        User.objects.filter(username='alex@example.test').delete()
+        keep = [(r[0], r[1]) for r in ROOMS]
+        for room in Room.objects.all():
+            if (room.name, room.building) not in keep:
+                Booking.objects.filter(slot__room=room).delete()
+                AvailabilitySlot.objects.filter(room=room).delete()
+                room.delete()
 
     def _seed_activity(self):
-        """Past bookings (completed, cancelled, no-show) so Analytics has data, plus a full slot with a waitlist."""
+        """Sample past bookings (completed, cancelled, no-show) on the two login accounts, plus a full slot with a waitlist."""
         marker = '[demo-activity]'
         if Booking.objects.filter(notes=marker).exists():
             return
         people = []
         for i in range(12):
             u, made = User.objects.get_or_create(username=f'learner{i}@example.test', defaults={
-                'email': f'learner{i}@example.test', 'first_name': f'Learner{i}', 'last_name': 'Demo'})
+                'email': f'learner{i}@example.test', 'first_name': f'Learner{i}', 'last_name': 'Sample'})
             if made:
                 u.set_unusable_password()
                 u.save()
             people.append(Student.objects.get_or_create(user=u, defaults={'bio': 'MAC student, University of Windsor.'})[0])
-        # statuses spread over three weeks; no student gets enough no-shows to be paused
         pattern = ['confirmed'] * 6 + ['cancelled', 'no_show', 'confirmed', 'declined', 'confirmed', 'no_show']
         hours = [(9, 10), (10, 11), (11, 12), (14, 15), (15, 16), (10, 11), (14, 15), (9, 10), (15, 16), (11, 12), (14, 15), (10, 11)]
         n = 0
-        for name in ('Vrajkumar Patel', 'Rajbeer Kaur Dutta', 'Harsh Patel', 'Bhavya Patel'):
+        for name in ('Dr. Ziad Kobti', 'Dr. Olena Syrotkina'):
             tutor = Tutor.objects.filter(display_name=name).first()
             if not tutor:
                 continue
@@ -203,46 +188,43 @@ class Command(BaseCommand):
                 student_row = people[(k + n) % len(people)]
                 if Booking.objects.filter(slot=slot, status__in=Booking.ACTIVE).exists():
                     continue
-                Booking.objects.create(student=student_row, slot=slot, notes=marker if n == 0 and k == 0 else 'Demo history',
+                Booking.objects.create(student=student_row, slot=slot, notes=marker if n == 0 and k == 0 else 'Sample history',
                                        status={'no_show': Booking.NO_SHOW, 'declined': Booking.DECLINED,
                                                'cancelled': Booking.CANCELLED}.get(status, Booking.CONFIRMED))
             n += 1
-        # a fully booked future slot with someone waiting, so the waitlist can be shown
-        sam = Tutor.objects.filter(display_name='Harsh Patel').first()
-        if sam:
-            full = services.available_slots(AvailabilitySlot.objects.filter(tutor=sam)).order_by('date', 'start_time').first()
+        target = Tutor.objects.filter(display_name='Dr. Ziad Kobti').first()
+        if target:
+            full = services.available_slots(AvailabilitySlot.objects.filter(tutor=target)).order_by('date', 'start_time').first()
             if full:
-                Booking.objects.create(student=people[0], slot=full, status=Booking.CONFIRMED, notes='Demo full slot')
+                Booking.objects.create(student=people[0], slot=full, status=Booking.CONFIRMED, notes='Sample full slot')
                 WaitlistEntry.objects.get_or_create(student=people[1], slot=full)
 
-    def _seed_history(self, demo_user):
-        """A finished session for the demo student (so the review flow works) plus sample reviews."""
+    def _seed_history(self, demo_user, users):
+        """A finished session and an upcoming one for the demo student, plus a pending request for the approver."""
         demo_student = Student.objects.get(user=demo_user)
+        kobti = Tutor.objects.filter(display_name='Dr. Ziad Kobti').first()
+        syrotkina = Tutor.objects.filter(display_name='Dr. Olena Syrotkina').first()
         yesterday = timezone.localdate() - timedelta(days=1)
-        past_tutor = Tutor.objects.filter(display_name='Rajbeer Kaur Dutta').first()
-        if past_tutor:
+        if kobti:
             slot, _ = AvailabilitySlot.objects.get_or_create(
-                tutor=past_tutor, room=None, date=yesterday, start_time=time(9, 0), end_time=time(10, 0))
-            Booking.objects.get_or_create(student=demo_student, slot=slot, defaults={'notes': 'Django models and migrations review'})
-        upcoming_tutor = Tutor.objects.filter(display_name='Vrajkumar Patel').first()
-        if upcoming_tutor:
+                tutor=kobti, room=None, date=yesterday, start_time=time(9, 0), end_time=time(10, 0))
+            Booking.objects.get_or_create(student=demo_student, slot=slot, defaults={'notes': 'Project scope discussion'})
+        if syrotkina:
             nxt = AvailabilitySlot.objects.filter(
-                tutor=upcoming_tutor, is_active=True, date__gt=timezone.localdate()).order_by('date', 'start_time').first()
+                tutor=syrotkina, is_active=True, date__gt=timezone.localdate()).order_by('date', 'start_time').first()
             if nxt and not Booking.objects.filter(student=demo_student, status=Booking.CONFIRMED, slot__date__gte=timezone.localdate()).exists():
                 booking, made = Booking.objects.get_or_create(
-                    student=demo_student, slot=nxt, defaults={'notes': 'Django ORM: relationships and queries'})
+                    student=demo_student, slot=nxt, defaults={'notes': 'Machine learning course project topic'})
                 if made:
                     services.notify_booking(booking, 'confirmed')
-                    BookingMessage.objects.create(booking=booking, sender=demo_user, body='Hi! Could we focus on ORM relationships and migrations?')
-                    BookingMessage.objects.create(booking=booking, sender=upcoming_tutor.user, body='Absolutely. Bring your models.py and we will walk through it.')
-        # a pending request waiting on Rajbeer (who approves each booking)
-        if past_tutor:
-            nxt_alex = services.available_slots(AvailabilitySlot.objects.filter(tutor=past_tutor)).first()
-            ru, made = User.objects.get_or_create(username='maya@example.test', defaults={'email': 'maya@example.test', 'first_name': 'Maya', 'last_name': 'Demo'})
+                    BookingMessage.objects.create(booking=booking, sender=demo_user, body='Hi! Could we talk about choosing a project topic?')
+        if kobti:
+            pending_slot = services.available_slots(AvailabilitySlot.objects.filter(tutor=kobti)).first()
+            ru, made = User.objects.get_or_create(username='maya@example.test', defaults={'email': 'maya@example.test', 'first_name': 'Maya', 'last_name': 'Sample'})
             if made:
                 ru.set_unusable_password()
                 ru.save()
             requester, _ = Student.objects.get_or_create(user=ru)
-            if nxt_alex and requester and not Booking.objects.filter(student=requester, status=Booking.PENDING).exists():
-                req = Booking.objects.create(student=requester, slot=nxt_alex, status=Booking.PENDING, notes='Help with Django forms and validation')
+            if pending_slot and not Booking.objects.filter(student=requester, status=Booking.PENDING).exists():
+                req = Booking.objects.create(student=requester, slot=pending_slot, status=Booking.PENDING, notes='Question about the MAC internship course')
                 services.notify_booking(req, 'requested')
