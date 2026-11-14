@@ -9,8 +9,9 @@
     {% endif %}
   </div>
   <h3><a class="stretched" href="{% url 'tutor_detail' tutor.pk %}">{{ tutor.display_name }}</a></h3>
+  {% if tutor.title %}<p class="card-sub">{{ tutor.title }}</p>{% endif %}
   <div class="rating-line">{% include 'core/_stars.html' with value=tutor.avg_rating %}<span>{% if tutor.review_count %}{{ tutor.avg_rating|floatformat:1 }} <small>({{ tutor.review_count }})</small>{% else %}<small>New tutor</small>{% endif %}</span></div>
   <div class="chips">{% for s in tutor.subject_list|slice:':3' %}<span class="chip">{{ s }}</span>{% endfor %}</div>
-  <p class="card-desc">{{ tutor.bio|truncatewords:14 }}</p>
+  {% if tutor.interest_list %}<p class="card-desc">{% include 'core/_icon.html' with name='flask' %} {{ tutor.interest_list|slice:':3'|join:' · ' }}</p>{% else %}<p class="card-desc">{{ tutor.bio|truncatewords:14 }}</p>{% endif %}
   <div class="card-foot"><span class="meta">{% include 'core/_icon.html' with name='pin' %} {{ tutor.location }}</span><span class="go">View slots {% include 'core/_icon.html' with name='arrow-up-right' %}</span></div>
 </article>

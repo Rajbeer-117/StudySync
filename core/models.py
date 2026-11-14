@@ -29,6 +29,10 @@ class Tutor(models.Model):
     subjects = models.CharField(max_length=200, help_text='Comma-separated subjects')
     bio = models.TextField(blank=True)
     location = models.CharField(max_length=120, default='Leddy Library')
+    title = models.CharField(max_length=140, blank=True, help_text='For example: Assistant Professor')
+    office = models.CharField(max_length=120, blank=True)
+    research_interests = models.TextField(blank=True, help_text='Separate topics with semicolons.')
+    profile_url = models.URLField(blank=True, help_text='Public profile page for this person.')
     photo = models.ImageField(upload_to='tutors/photos/', blank=True, validators=[validate_image])
     requires_approval = models.BooleanField(
         default=False, help_text='New booking requests stay pending until you approve them.')
@@ -47,6 +51,11 @@ class Tutor(models.Model):
         return [item.strip() for item in self.subjects.split(',') if item.strip()]
 
     @property
+    def interest_list(self):
+        items = [item.strip(' .') for item in self.research_interests.split(';')]
+        return [item[0].upper() + item[1:] for item in items if item]
+
+    @property
     def rating_summary(self):
         data = self.reviews.aggregate(avg=Avg('rating'))
         count = self.reviews.count()
@@ -60,6 +69,9 @@ class Room(models.Model):
     amenities = models.CharField(max_length=230, blank=True)
     description = models.TextField(blank=True)
     image = models.ImageField(upload_to='rooms/', blank=True, validators=[validate_image])
+    info_url = models.URLField(blank=True, help_text='Official page describing this room.')
+    rules_url = models.URLField(blank=True, help_text='Official booking rules.')
+    booking_url = models.URLField(blank=True, help_text='Official booking calendar, if any.')
     is_active = models.BooleanField(default=True)
 
     kind = 'room'

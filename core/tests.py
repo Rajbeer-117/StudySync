@@ -747,3 +747,32 @@ class PagerTests(TestCase):
         self.assertNotContains(resp, 'sr-flip')                 # the old mirrored-text hack
         first = self.client.get(reverse('catalog'))
         self.assertContains(first, 'is-disabled')               # Previous is shown but disabled on page 1
+
+
+class ProfilePanelTests(TestCase):
+    def test_faculty_profile_panel_shows_facts_and_safe_external_links(self):
+        tutor = Tutor.objects.create(
+            display_name='Dr. Example', subjects='Databases', title='Professor', office='5103, Lambton Tower',
+            research_interests='Pattern mining; Recommendation systems.', profile_url='https://www.uwindsor.ca/science/computerscience/1062/dr-christie-ezeife')
+        resp = self.client.get(reverse('tutor_detail', args=[tutor.pk]))
+        self.assertContains(resp, 'Faculty profile')
+        self.assertContains(resp, '5103, Lambton Tower')
+        self.assertContains(resp, 'Recommendation systems')
+        self.assertContains(resp, 'href="https://www.uwindsor.ca/science/computerscience/1062/dr-christie-ezeife" target="_blank" rel="noopener noreferrer"')
+
+    def test_tutor_without_profile_url_has_no_faculty_panel(self):
+        tutor = Tutor.objects.create(display_name='Peer', subjects='Python')
+        self.assertNotContains(self.client.get(reverse('tutor_detail', args=[tutor.pk])), 'Faculty profile')
+
+    def test_room_panel_lists_official_links(self):
+        room = Room.objects.create(name='Group Study Room 318A', building='Leddy Library', capacity=4, amenities='Blackboard, Whiteboard',
+                                   info_url='https://leddy.uwindsor.ca/spaces-bookings/study-rooms', rules_url='https://leddy.uwindsor.ca/find-space/study-room-policies')
+        resp = self.client.get(reverse('room_detail', args=[room.pk]))
+        self.assertContains(resp, 'Space details')
+        self.assertContains(resp, 'Booking rules')
+        self.assertContains(resp, 'rel="noopener noreferrer"')
+        self.assertContains(resp, 'Blackboard, Whiteboard')
+
+    def test_interest_list_splits_on_semicolons(self):
+        t = Tutor(display_name='X', subjects='a', research_interests='One topic; Two topics.; ')
+        self.assertEqual(t.interest_list, ['One topic', 'Two topics'])

@@ -32,10 +32,49 @@
             <ul class="facts"><li>{% include 'core/_icon.html' with name='pin' %} {{ resource.location }}</li><li>{% include 'core/_icon.html' with name='clock' %} Weekday sessions</li></ul>
           {% else %}
             <h2>About this space</h2><p>{{ resource.description|default:'A quiet campus study space.' }}</p>
-            <h2>Amenities</h2><div class="chips">{% for a in resource.amenity_list %}<span class="chip">{{ a }}</span>{% empty %}<span class="chip">Standard amenities</span>{% endfor %}</div>
           {% endif %}
         </div>
       </section>
+
+      {% if resource_kind == 'tutor' and resource.profile_url %}
+      <section class="info-panel glass reveal" id="profile" aria-labelledby="profile-h">
+        <div class="panel-head"><span class="feature-ico sm">{% include 'core/_icon.html' with name='book' %}</span><div><h2 id="profile-h">Faculty profile</h2><p>From the University of Windsor School of Computer Science</p></div></div>
+        <dl class="fact-grid">
+          {% if resource.title %}<div><dt>Title</dt><dd>{{ resource.title }}</dd></div>{% endif %}
+          {% if resource.office %}<div><dt>Office</dt><dd>{{ resource.office }}</dd></div>{% endif %}
+          <div><dt>Department</dt><dd>School of Computer Science</dd></div>
+          <div><dt>Campus location</dt><dd>{{ resource.location }}</dd></div>
+        </dl>
+        {% if resource.interest_list %}
+        <h3 class="panel-sub">Research interests</h3>
+        <ul class="tag-list">{% for item in resource.interest_list %}<li>{{ item }}</li>{% endfor %}</ul>
+        {% endif %}
+        <h3 class="panel-sub">Links</h3>
+        <div class="link-row">
+          <a class="link-btn" href="{{ resource.profile_url }}" target="_blank" rel="noopener noreferrer">{% include 'core/_icon.html' with name='link' %} Official profile {% include 'core/_icon.html' with name='arrow-up-right' %}</a>
+          <a class="link-btn" href="https://www.uwindsor.ca/science/computerscience/1046/faculty" target="_blank" rel="noopener noreferrer">{% include 'core/_icon.html' with name='users' %} All faculty {% include 'core/_icon.html' with name='arrow-up-right' %}</a>
+          {% if resource.meeting_url %}<a class="link-btn" href="{{ resource.meeting_url }}" target="_blank" rel="noopener noreferrer">{% include 'core/_icon.html' with name='calendar' %} Online meeting room {% include 'core/_icon.html' with name='arrow-up-right' %}</a>{% endif %}
+        </div>
+        <p class="hint">{% include 'core/_icon.html' with name='shield' %} Details are copied from the public profile. Open the official profile for the current office hours and contact details.</p>
+      </section>
+      {% elif resource_kind == 'room' %}
+      <section class="info-panel glass reveal" id="space" aria-labelledby="space-h">
+        <div class="panel-head"><span class="feature-ico sm">{% include 'core/_icon.html' with name='building' %}</span><div><h2 id="space-h">Space details</h2><p>From the library's published room information</p></div></div>
+        <dl class="fact-grid">
+          <div><dt>Building</dt><dd>{{ resource.building }}</dd></div>
+          <div><dt>Capacity</dt><dd>{{ resource.capacity }} {{ resource.capacity|pluralize:'person,people' }}</dd></div>
+          <div><dt>Equipment</dt><dd>{% if resource.amenity_list %}{{ resource.amenity_list|join:', ' }}{% else %}None listed{% endif %}</dd></div>
+        </dl>
+        {% if resource.info_url or resource.rules_url or resource.booking_url %}
+        <h3 class="panel-sub">Official links</h3>
+        <div class="link-row">
+          {% if resource.info_url %}<a class="link-btn" href="{{ resource.info_url }}" target="_blank" rel="noopener noreferrer">{% include 'core/_icon.html' with name='building' %} Study rooms {% include 'core/_icon.html' with name='arrow-up-right' %}</a>{% endif %}
+          {% if resource.rules_url %}<a class="link-btn" href="{{ resource.rules_url }}" target="_blank" rel="noopener noreferrer">{% include 'core/_icon.html' with name='book' %} Booking rules {% include 'core/_icon.html' with name='arrow-up-right' %}</a>{% endif %}
+          {% if resource.booking_url %}<a class="link-btn" href="{{ resource.booking_url }}" target="_blank" rel="noopener noreferrer">{% include 'core/_icon.html' with name='calendar' %} Library booking calendar {% include 'core/_icon.html' with name='arrow-up-right' %}</a>{% endif %}
+        </div>
+        {% endif %}
+      </section>
+      {% endif %}
 
       {% if resource_kind == 'tutor' %}
       <section class="reviews glass reveal" id="reviews">

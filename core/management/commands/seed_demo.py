@@ -23,7 +23,7 @@ FACULTY = [
     ('Dr. Kalyani Selvarajah', 'Computer Science', '300 Ouellette', 'Assistant Professor', '4033, 300 Ouellette', '',
      '242401/dr-kalyani-selvarajah', 3, 13),
     ('Dr. Ziad Kobti', 'Evolutionary Computation, Multi-Agent Simulation, Decision Support, Social Network Analysis',
-     'Lambton Tower', 'Professor and Director, School of Computer Science', 'L.T. 5116 / 300 Ouellette 4007',
+     'Lambton Tower', 'Professor and Director', 'L.T. 5116 / 300 Ouellette 4007',
      'Evolutionary computation (genetic and cultural algorithms, co-evolution, PSO); multi-agent simulation of artificial human societies; '
      'decision support systems in health care and safety; social network analysis.', '1060/dr-ziad', 1, 14),
     ('Dr. Aznam Yacoub', 'Cognitive Modelling, Computational Intelligence, Evolutionary Algorithms, Systems Engineering',
@@ -55,6 +55,11 @@ FACULTY = [
      '1033/dr-luis-rueda', 3, 11),
 ]
 FACULTY_NAMES = [row[0] for row in FACULTY]
+
+LEDDY_ROOMS = 'https://leddy.uwindsor.ca/spaces-bookings/study-rooms'
+LEDDY_RULES = 'https://leddy.uwindsor.ca/find-space/study-room-policies'
+LEDDY_GROUP_CAL = 'https://calendar.library.uwindsor.ca/spaces?lid=2690'
+LEDDY_PERSONAL_CAL = 'https://calendar.library.uwindsor.ca/spaces?lid=2326'
 
 GROUP_RULES = 'Group study room for up to 4 people. Up to 3 hours per day, bookable up to 30 days ahead.'
 # Leddy Library bookable rooms and the equipment listed for each (leddy.uwindsor.ca/spaces-bookings/study-rooms)
@@ -107,12 +112,11 @@ class Command(BaseCommand):
             users[name] = user
 
         for name, subjects, location, title, office, interests, path, weekday, hour in FACULTY:
-            bio = f'{title}, School of Computer Science, University of Windsor. Office: {office}.'
-            if interests:
-                bio += f' Research interests: {interests}'
-            bio += f' Profile: {PROFILE_BASE}{path}'
+            bio = f'{title}, School of Computer Science, University of Windsor.'
             tutor, _ = Tutor.objects.get_or_create(display_name=name, defaults={'subjects': subjects, 'location': location, 'bio': bio})
             tutor.subjects, tutor.location, tutor.bio = subjects, location, bio
+            tutor.title, tutor.office, tutor.research_interests = title, office, interests.rstrip('.')
+            tutor.profile_url = PROFILE_BASE + path
             tutor.requires_approval, tutor.meeting_url = True, ''
             if name in users:
                 tutor.user = users[name]
@@ -125,6 +129,8 @@ class Command(BaseCommand):
         for name, building, capacity, amenities, description in ROOMS:
             room, _ = Room.objects.get_or_create(name=name, building=building, defaults={'capacity': capacity})
             room.capacity, room.amenities, room.description, room.is_active = capacity, amenities, description, True
+            room.info_url, room.rules_url = LEDDY_ROOMS, LEDDY_RULES
+            room.booking_url = LEDDY_PERSONAL_CAL if name.startswith('Personal') else LEDDY_GROUP_CAL
             room.save()
 
         count = 0
