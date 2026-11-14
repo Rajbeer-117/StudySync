@@ -12,6 +12,7 @@
       <div><dt>Time</dt><dd>{{ slot.start_time|time:'g:i A' }} – {{ slot.end_time|time:'g:i A' }}</dd></div>
       <div><dt>Location</dt><dd>{% if slot.tutor_id %}{{ slot.tutor.location }}{% else %}{{ slot.room.building }}{% endif %}</dd></div>
       <div><dt>Booked by</dt><dd>{{ user.get_full_name|default:user.email }}</dd></div>
+      {% if weeks > 1 %}<div><dt>Repeats</dt><dd>Weekly for {{ weeks }} weeks (weeks with no free matching slot are skipped)</dd></div>{% endif %}
       {% if notes %}<div><dt>Notes</dt><dd>{{ notes|linebreaksbr }}</dd></div>{% endif %}
     </dl>
     <p class="hint">{% include 'core/_icon.html' with name='clock' %} This preview is held in your session for 15 minutes. A booking is saved only after you confirm.</p>

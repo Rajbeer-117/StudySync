@@ -51,9 +51,9 @@ class RegistrationForm(UserCreationForm, StyledFormMixin):
         if commit:
             user.save()
             if self.cleaned_data['role'] == 'tutor':
-                Tutor.objects.create(user=user, display_name=user.get_full_name(), subjects='General study help')
+                Tutor.objects.create(user=user, display_name=user.get_full_name(), subjects='General study help', email_verified=False)
             else:
-                Student.objects.create(user=user)
+                Student.objects.create(user=user, email_verified=False)
         return user
 
 
@@ -81,6 +81,7 @@ class SearchForm(forms.Form, StyledFormMixin):
     location = forms.ChoiceField(required=False, choices=[('', 'Any location')], label='Location')
     when = forms.ChoiceField(required=False, choices=WHEN_CHOICES, label='Availability')
     capacity = forms.ChoiceField(required=False, choices=CAPACITY_CHOICES, label='Room size')
+    online = forms.ChoiceField(required=False, choices=[('', 'In person or online'), ('yes', 'Online sessions available')], label='Format')
     sort = forms.ChoiceField(required=False, choices=SORT_CHOICES, label='Sort by')
 
     def __init__(self, *args, **kwargs):
@@ -100,7 +101,7 @@ class SearchForm(forms.Form, StyledFormMixin):
             (t.strftime('%H:%M'), t.strftime('%I:%M %p').lstrip('0')) for t in times]
         self.fields['location'].choices = [('', 'Any location')] + [(x, x) for x in sorted(locations) if x]
         self.apply_styles()
-        for name in ('kind', 'subject', 'date', 'time', 'location', 'when', 'capacity', 'sort'):
+        for name in ('kind', 'subject', 'date', 'time', 'location', 'when', 'capacity', 'online', 'sort'):
             self.fields[name].widget.attrs['data-filter-select'] = 'true'
 
 
@@ -119,9 +120,21 @@ class MessageForm(forms.Form, StyledFormMixin):
         return body
 
 
+class SessionNotesForm(forms.Form, StyledFormMixin):
+    tutor_notes = forms.CharField(label='Notes for the student', max_length=1500, widget=forms.Textarea(
+        attrs={'rows': 4, 'placeholder': 'What you covered, and what to practise next…'}))
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.apply_styles()
+
+
 class BookingNotesForm(forms.Form, StyledFormMixin):
     notes = forms.CharField(label='A note for your session (optional)', required=False,
                             max_length=750, widget=forms.Textarea(attrs={'rows': 4, 'placeholder': 'What would you like to work on?'}))
+    repeat_weeks = forms.TypedChoiceField(
+        label='Repeat weekly', required=False, coerce=int, empty_value=1,
+        choices=[(1, 'Just this session')] + [(n, f'Same time for {n} weeks') for n in range(2, 7)])
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -152,9 +165,9 @@ class StudentProfileForm(forms.ModelForm, StyledFormMixin):
 class TutorProfileForm(forms.ModelForm, StyledFormMixin):
     class Meta:
         model = Tutor
-        fields = ('display_name', 'subjects', 'location', 'bio', 'photo', 'requires_approval')
+        fields = ('display_name', 'subjects', 'location', 'meeting_url', 'bio', 'photo', 'requires_approval')
         widgets = {'bio': forms.Textarea(attrs={'rows': 3})}
-        labels = {'requires_approval': 'Approve each booking request myself'}
+        labels = {'requires_approval': 'Approve each booking request myself', 'meeting_url': 'Online meeting link (optional)'}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

@@ -79,6 +79,21 @@
           </div>{% endfor %}
         </div>
       {% else %}<div class="empty-mini"><p>No open slots right now.</p><small>{% if resource_kind == 'tutor' %}Check back soon or save this tutor.{% else %}New times are added regularly.{% endif %}</small></div>{% endif %}
+      {% if full_slots %}
+      <div class="waitlist"><h3>Fully booked</h3><p class="hint">Join a waitlist and we'll notify you if the time opens up.</p>
+        {% for slot in full_slots %}
+        <div class="waitlist-row"><span>{{ slot.date|date:'D, M j' }} · {{ slot.start_time|time:'g:i A' }}</span>
+          {% if is_student %}
+            {% if slot.pk in waiting_ids %}
+            <form method="post" action="{% url 'waitlist_leave' slot.pk %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}"><button class="btn btn-glass btn-sm" type="submit">On waitlist · leave</button></form>
+            {% else %}
+            <form method="post" action="{% url 'waitlist_join' slot.pk %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}"><button class="btn btn-primary btn-sm" type="submit">Join waitlist</button></form>
+            {% endif %}
+          {% else %}<small>Student login needed</small>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
       <p class="hint">{% include 'core/_icon.html' with name='shield' %} {% if resource.requires_approval %}This tutor approves each request, and you'll be notified.{% else %}Booked instantly. Double-bookings are prevented automatically.{% endif %}</p>
       {% if not user.is_authenticated %}<p class="hint">Browsing is open. <a href="{% url 'login' %}?next={{ request.path|urlencode }}">Log in</a> to book.</p>{% endif %}
     </aside>

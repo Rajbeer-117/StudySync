@@ -17,12 +17,23 @@
           <div><dt>Time</dt><dd>{{ slot.start_time|time:'g:i A' }} – {{ slot.end_time|time:'g:i A' }}</dd></div>
           <div><dt>Location</dt><dd>{% if slot.tutor_id %}{{ slot.tutor.location }}{% else %}{{ slot.room.building }}{% endif %}</dd></div>
           {% if role == 'tutor' %}<div><dt>Student</dt><dd>{{ booking.student.user.email }}</dd></div>{% endif %}
+          {% if slot.tutor_id and slot.tutor.meeting_url and booking.status == 'confirmed' and not booking.is_completed %}<div><dt>Online link</dt><dd><a href="{{ slot.tutor.meeting_url }}" target="_blank" rel="noopener noreferrer">Join the video call</a></dd></div>{% endif %}
           {% if booking.notes %}<div><dt>Notes</dt><dd>{{ booking.notes|linebreaksbr }}</dd></div>{% endif %}
         </dl>
         <ol class="timeline" aria-label="Booking progress">
           {% for step in timeline %}<li class="is-{{ step.state }}"><i></i><div><strong>{{ step.label }}</strong>{% if step.note %}<small>{{ step.note|date:'M j, g:i A' }}</small>{% endif %}</div></li>{% endfor %}
         </ol>
       </section>
+
+      {% if booking.tutor_notes or can_add_notes %}
+      <section class="glass chat reveal" id="session-notes">
+        <div class="reviews-head"><h2>Session notes</h2></div>
+        {% if booking.tutor_notes %}<p>{{ booking.tutor_notes|linebreaksbr }}</p>{% elif role == 'student' %}<p class="hint">Your tutor hasn't added notes yet.</p>{% endif %}
+        {% if can_add_notes %}
+        <form method="post" action="{% url 'tutor_session_notes' booking.pk %}" class="stack">{% csrf_token %}{{ notes_form.tutor_notes }}<button class="btn btn-primary" type="submit">Save and share with student</button></form>
+        {% endif %}
+      </section>
+      {% endif %}
 
       <section class="glass chat reveal" id="messages">
         <div class="reviews-head"><h2>Messages</h2>{% if other_party.get_full_name %}<small>with {{ other_party.get_full_name }}</small>{% endif %}</div>
@@ -43,6 +54,7 @@
           <form method="post" action="{% url 'tutor_decide_booking' booking.pk %}">{% csrf_token %}<input type="hidden" name="decision" value="approve"><input type="hidden" name="next" value="{{ request.path }}"><button class="btn btn-primary btn-block" type="submit">{% include 'core/_icon.html' with name='check' %} Approve request</button></form>
           <form method="post" action="{% url 'tutor_decide_booking' booking.pk %}">{% csrf_token %}<input type="hidden" name="decision" value="decline"><input type="hidden" name="next" value="{{ request.path }}"><button class="btn btn-danger btn-block" type="submit" data-confirm="Decline this request?">Decline</button></form>
         {% endif %}
+        {% if role == 'tutor' and booking.can_mark_no_show %}<form method="post" action="{% url 'tutor_mark_no_show' booking.pk %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}"><button class="btn btn-glass btn-block" type="submit" data-confirm="Mark this student as a no-show?">Mark as no-show</button></form>{% endif %}
         {% if role == 'student' and booking.status == 'confirmed' %}<a class="btn btn-glass btn-block" href="{% url 'booking_ics' booking.pk %}">{% include 'core/_icon.html' with name='download' %} Add to calendar</a>{% endif %}
         {% if can_reschedule %}<a class="btn btn-glass btn-block" href="{% url 'reschedule' booking.pk %}">{% include 'core/_icon.html' with name='repeat' %} Reschedule</a>{% endif %}
         {% if can_review %}<a class="btn btn-glass btn-block" href="{% url 'tutor_detail' slot.tutor_id %}#reviews">{% include 'core/_icon.html' with name='star' %} Leave a review</a>{% endif %}

@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone as dt_timezone
 from itertools import chain
 
 from django.contrib import messages
-from django.contrib.auth import login
+from django.contrib.auth import get_user_model, login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView, PasswordChangeView
 from django.core.paginator import Paginator
@@ -17,12 +17,14 @@ from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
-from . import services
+from . import services, verification
 from .forms import (AccountNameForm, BookingNotesForm, EmailLoginForm, MessageForm, RegistrationForm,
-                    ReviewForm, SearchForm, SlotCreateForm, StudentProfileForm, TutorProfileForm)
-from .models import (AvailabilitySlot, Booking, Favorite, Notification, Review, Room, Student, Tutor)
+                    ReviewForm, SearchForm, SessionNotesForm, SlotCreateForm, StudentProfileForm, TutorProfileForm)
+from .models import (AvailabilitySlot, Booking, Favorite, Notification, Review, Room, Student, Tutor, WaitlistEntry)
 from .security import clear_login_failures, login_locked, record_login_failure
 from .services import BookingError
+
+User = get_user_model()
 
 RECENT_KEY = 'recently_viewed'
 PENDING_KEY = 'pending_booking'
@@ -49,6 +51,14 @@ def _favorite_ids(student):
     favs = Favorite.objects.filter(student=student)
     return (set(favs.exclude(tutor=None).values_list('tutor_id', flat=True)),
             set(favs.exclude(room=None).values_list('room_id', flat=True)))
+
+
+def _needs_verification(request, what='do this'):
+    """True (and a message queued) when the signed-in user has not confirmed their email yet."""
+    if verification.is_verified(request.user):
+        return False
+    messages.warning(request, f'Please confirm your email before you {what}. We sent you a link; you can resend it from your dashboard.')
+    return True
 
 
 def _safe_next(value, default):
@@ -132,6 +142,9 @@ def catalog(request):
     if data.get('capacity'):
         rooms = rooms.filter(capacity__gte=int(data['capacity']))
         tutors = tutors.none()
+    if data.get('online'):
+        tutors = tutors.exclude(meeting_url='')
+        rooms = rooms.none()  # only tutors run online sessions
 
     if data.get('date') or data.get('time') or data.get('when'):
         slots = services.available_slots()
@@ -176,11 +189,19 @@ def catalog(request):
     return response
 
 
+def _full_slots(queryset, student):
+    """Booked-up future slots, plus the ids this student is already waiting on."""
+    full = list(services.taken_slots(queryset)[:30])
+    waiting = set(WaitlistEntry.objects.filter(student=student, slot__in=full).values_list('slot_id', flat=True)) if student else set()
+    return full, waiting
+
+
 def tutor_detail(request, pk):
     tutor = get_object_or_404(Tutor, pk=pk, is_active=True)
     _remember_view(request, 't', pk)
     slots = list(services.available_slots(AvailabilitySlot.objects.filter(tutor=tutor))[:60])
     student = _student_for(request.user)
+    full_slots, waiting = _full_slots(AvailabilitySlot.objects.filter(tutor=tutor), student)
     reviews = tutor.reviews.select_related('student__user')
     my_review = reviews.filter(student=student).first() if student else None
     can_review = bool(student) and _has_completed_session(student, tutor)
@@ -195,6 +216,7 @@ def tutor_detail(request, pk):
         'my_review': my_review, 'can_review': can_review, 'summary': summary, 'breakdown': breakdown,
         'review_form': ReviewForm(instance=my_review) if can_review else None,
         'is_favorite': tutor.pk in fav_tutors, 'is_student': bool(student),
+        'full_slots': full_slots, 'waiting_ids': waiting,
     })
 
 
@@ -202,9 +224,12 @@ def room_detail(request, pk):
     room = get_object_or_404(Room, pk=pk, is_active=True)
     _remember_view(request, 'r', pk)
     slots = list(services.available_slots(AvailabilitySlot.objects.filter(room=room))[:60])
-    _, fav_rooms = _favorite_ids(_student_for(request.user))
+    student = _student_for(request.user)
+    _, fav_rooms = _favorite_ids(student)
+    full_slots, waiting = _full_slots(AvailabilitySlot.objects.filter(room=room), student)
     return render(request, 'core/detail.html', {
         'resource': room, 'resource_kind': 'room', 'slots': slots,
+        'full_slots': full_slots, 'waiting_ids': waiting,
         'is_favorite': room.pk in fav_rooms, 'is_student': request.user.is_authenticated and bool(_student_for(request.user)),
     })
 
@@ -329,9 +354,58 @@ def register(request):
         with transaction.atomic():
             user = form.save()
         login(request, user)
-        messages.success(request, 'Welcome to StudySync! Your account is ready.')
+        verification.send_verification_email(request, user)
+        messages.success(request, 'Welcome to StudySync! Check your inbox and confirm your email to start booking.')
         return redirect('dashboard')
     return render(request, 'registration/register.html', {'form': form})
+
+
+def verify_email(request, token):
+    """Open from the emailed link; works even if the user is signed out."""
+    data = verification.read_token(token)
+    user = User.objects.filter(pk=data['u'], email=data['e']).first() if data else None
+    if user is None:
+        messages.error(request, 'That confirmation link is invalid or has expired. Sign in and request a new one.')
+        return redirect('dashboard' if request.user.is_authenticated else 'login')
+    verification.mark_verified(user)
+    messages.success(request, 'Email confirmed. You can book sessions now.')
+    return redirect('dashboard' if request.user.is_authenticated else 'login')
+
+
+@login_required
+@require_POST
+def resend_verification(request):
+    if verification.is_verified(request.user):
+        messages.info(request, 'Your email is already confirmed.')
+    elif not verification.resend_allowed(request.user):
+        messages.warning(request, 'A link was sent a moment ago. Please wait a minute before asking again.')
+    else:
+        verification.send_verification_email(request, request.user)
+        messages.success(request, f'Confirmation link sent to {request.user.email}.')
+    return redirect(_safe_next(request.POST.get('next'), reverse('dashboard')))
+
+
+@login_required
+@require_POST
+def tutor_session_notes(request, pk):
+    """The tutor leaves follow-up notes on a session that has already happened."""
+    tutor = _tutor_for(request.user)
+    booking = get_object_or_404(Booking.objects.select_related('slot__tutor__user', 'slot__room', 'student__user'),
+                                pk=pk, slot__tutor=tutor) if tutor else None
+    if booking is None:
+        raise Http404
+    form = SessionNotesForm(request.POST)
+    if booking.status not in (Booking.CONFIRMED, Booking.NO_SHOW) or not booking.slot.is_past:
+        messages.warning(request, 'Notes can be added once a confirmed session has taken place.')
+    elif form.is_valid():
+        booking.tutor_notes = form.cleaned_data['tutor_notes'].strip()
+        booking.save(update_fields=['tutor_notes', 'updated_at'])
+        services.push(booking.student.user, 'booking', f'{tutor} shared notes from your session',
+                      booking.tutor_notes[:120], reverse('booking_detail', args=[booking.pk]))
+        messages.success(request, 'Notes saved and shared with the student.')
+    else:
+        messages.error(request, 'Please write a note first.')
+    return redirect('booking_detail', pk=booking.pk)
 
 
 @login_required
@@ -423,6 +497,8 @@ def start_booking(request, slot_id):
     if student is None:
         messages.error(request, 'Only student accounts can book. You can still browse tutors and rooms.')
         return redirect('catalog')
+    if _needs_verification(request, 'book a session'):
+        return redirect('dashboard')
     slot = get_object_or_404(AvailabilitySlot.objects.select_related('tutor', 'room'), pk=slot_id)
     if not services.slot_available(slot):
         messages.warning(request, 'That time is no longer available. Please choose another slot.')
@@ -433,6 +509,7 @@ def start_booking(request, slot_id):
     form = BookingNotesForm(request.POST or None)
     if request.method == 'POST' and form.is_valid():
         request.session[PENDING_KEY] = {'slot_id': slot.pk, 'notes': form.cleaned_data['notes'],
+                                        'weeks': form.cleaned_data.get('repeat_weeks') or 1,
                                         'created_at': timezone.now().isoformat()}
         return redirect('booking_review')
     return render(request, 'core/start_booking.html', {'slot': slot, 'form': form})
@@ -444,6 +521,8 @@ def booking_review(request):
     if not student:
         messages.error(request, 'Only students can confirm bookings.')
         return redirect('catalog')
+    if _needs_verification(request, 'confirm a booking'):
+        return redirect('dashboard')
     pending = request.session.get(PENDING_KEY)
     if not pending:
         messages.info(request, 'Choose a tutor or room time slot to start a booking.')
@@ -461,8 +540,10 @@ def booking_review(request):
         return redirect('catalog')
     slot = get_object_or_404(AvailabilitySlot.objects.select_related('tutor', 'room'), pk=slot_id)
     if request.method == 'POST':
+        weeks = int(pending.get('weeks') or 1)
         try:
-            booking = services.create_booking(student, slot_id, pending.get('notes', ''))
+            made, skipped = services.create_recurring(student, slot_id, pending.get('notes', ''), weeks)
+            booking = made[0]
         except BookingError as exc:
             request.session.pop(PENDING_KEY, None)
             messages.error(request, str(exc))
@@ -475,13 +556,20 @@ def booking_review(request):
         else:
             services.notify_booking(booking, 'confirmed', request.user)
             messages.success(request, f'Booking #{booking.pk} confirmed!')
+        for extra in made[1:]:
+            extra = Booking.objects.select_related('slot__tutor__user', 'slot__room', 'student__user').get(pk=extra.pk)
+            services.notify_booking(extra, 'requested' if extra.status == Booking.PENDING else 'confirmed', request.user)
+        if len(made) > 1:
+            messages.success(request, f'{len(made)} weekly sessions booked.')
+        if skipped:
+            messages.warning(request, 'Skipped (no free matching slot): ' + ', '.join(f'{d:%b} {d.day}' for d in skipped))
         return redirect('booking_detail', pk=booking.pk)
     if not services.slot_available(slot):
         request.session.pop(PENDING_KEY, None)
         messages.warning(request, 'This slot is no longer available.')
         return redirect('catalog')
     return render(request, 'core/booking_review.html', {
-        'slot': slot, 'notes': pending.get('notes', ''), 'needs_approval': bool(slot.tutor_id and slot.tutor.requires_approval)})
+        'slot': slot, 'notes': pending.get('notes', ''), 'weeks': int(pending.get('weeks') or 1), 'needs_approval': bool(slot.tutor_id and slot.tutor.requires_approval)})
 
 
 def _booking_for(request, pk):
@@ -528,6 +616,8 @@ def booking_detail(request, pk):
         'can_cancel': booking.is_active and not booking.slot.is_past,
         'can_message': booking.tutor_user is not None and booking.status in Booking.ACTIVE,
         'can_review': role == 'student' and booking.is_completed and bool(booking.slot.tutor_id),
+        'can_add_notes': role == 'tutor' and booking.status in (Booking.CONFIRMED, Booking.NO_SHOW) and booking.slot.is_past,
+        'notes_form': SessionNotesForm(initial={'tutor_notes': booking.tutor_notes}),
         'other_party': (booking.tutor_user or booking.slot.resource) if role == 'student' else booking.student.user,
     })
 
@@ -623,6 +713,8 @@ def manage_slots(request):
         messages.info(request, 'Availability management is for tutor accounts.')
         return redirect('dashboard')
     form = SlotCreateForm(request.POST or None, tutor=tutor)
+    if request.method == 'POST' and _needs_verification(request, 'publish availability'):
+        return redirect('manage_slots')
     if request.method == 'POST' and form.is_valid():
         created = form.save()
         messages.success(request, f'Added {len(created)} availability slot{"s" if len(created) != 1 else ""}.')
@@ -691,6 +783,108 @@ def tutor_decide_booking(request, pk):
         services.notify_booking(booking, 'declined', request.user)
         messages.success(request, 'Request declined.')
     return redirect(_safe_next(request.POST.get('next'), reverse('dashboard')))
+
+
+# --------------------------------------------------------------------------- waitlist, no-shows, analytics
+@login_required
+@require_POST
+def waitlist_join(request, slot_id):
+    student = _student_for(request.user)
+    if student is None:
+        messages.info(request, 'Waitlists are for student accounts.')
+        return redirect('catalog')
+    if _needs_verification(request, 'join a waitlist'):
+        return redirect('dashboard')
+    slot = get_object_or_404(AvailabilitySlot.objects.select_related('tutor', 'room'), pk=slot_id)
+    try:
+        _, created = services.join_waitlist(student, slot)
+        messages.success(request, "You're on the waitlist. We'll notify you if this time opens up." if created
+                         else "You're already on the waitlist for this time.")
+    except BookingError as exc:
+        messages.warning(request, str(exc))
+    return redirect(_safe_next(request.POST.get('next'), reverse('catalog')))
+
+
+@login_required
+@require_POST
+def waitlist_leave(request, slot_id):
+    student = _student_for(request.user)
+    if student:
+        WaitlistEntry.objects.filter(student=student, slot_id=slot_id).delete()
+        messages.success(request, 'Removed from the waitlist.')
+    return redirect(_safe_next(request.POST.get('next'), reverse('catalog')))
+
+
+@login_required
+@require_POST
+def tutor_mark_no_show(request, pk):
+    tutor = _tutor_for(request.user)
+    booking = get_object_or_404(Booking.objects.select_related('slot__tutor__user', 'slot__room', 'student__user'),
+                                pk=pk, slot__tutor=tutor) if tutor else None
+    if booking is None:
+        raise Http404
+    if booking.can_mark_no_show:
+        services.set_status(booking, Booking.NO_SHOW)
+        services.push(booking.student.user, 'booking', f'Marked as a no-show: {booking.slot.resource}',
+                      'Repeated no-shows pause booking. Please cancel ahead next time.',
+                      reverse('booking_detail', args=[booking.pk]))
+        messages.success(request, 'Marked as a no-show.')
+    else:
+        messages.warning(request, 'Only confirmed sessions that have already passed can be marked.')
+    return redirect(_safe_next(request.POST.get('next'), reverse('dashboard')))
+
+
+@login_required
+def analytics_csv(request):
+    """Download the same scope as the analytics page as a CSV file."""
+    import csv
+    tutor = _tutor_for(request.user)
+    if request.user.is_staff:
+        bookings = Booking.objects.all()
+    elif tutor:
+        bookings = Booking.objects.filter(slot__tutor=tutor)
+    else:
+        raise Http404
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="studysync-bookings.csv"'
+    writer = csv.writer(response)
+    writer.writerow(['booking_id', 'date', 'start', 'end', 'resource', 'student_email', 'status'])
+    for b in bookings.select_related('slot__tutor', 'slot__room', 'student__user').order_by('slot__date', 'slot__start_time'):
+        cells = [b.pk, b.slot.date.isoformat(), b.slot.start_time.strftime('%H:%M'), b.slot.end_time.strftime('%H:%M'),
+                 str(b.slot.resource), b.student.user.email, b.display_status]
+        # neutralise spreadsheet formula injection in any text that starts with = + - @
+        writer.writerow([("'" + c) if isinstance(c, str) and c[:1] in '=+-@' else c for c in cells])
+    return response
+
+
+@login_required
+def analytics(request):
+    """Tutors see their own numbers; staff see the whole platform."""
+    tutor = _tutor_for(request.user)
+    if request.user.is_staff:
+        scope, bookings = 'Platform', Booking.objects.all()
+        reviews = Review.objects.all()
+    elif tutor:
+        scope, bookings = 'Your sessions', Booking.objects.filter(slot__tutor=tutor)
+        reviews = tutor.reviews.all()
+    else:
+        messages.info(request, 'Analytics are available to tutors and administrators.')
+        return redirect('dashboard')
+    stats = services.analytics_for(bookings)
+    avg = reviews.aggregate(a=Avg('rating'))['a']
+    stats['avg_rating'] = round(avg, 1) if avg else None
+    stats['review_count'] = reviews.count()
+    stats['hour_max'] = max([h['count'] for h in stats['hours']] + [1])
+    stats['day_max'] = max([d['count'] for d in stats['weekdays']] + [1])
+    for row in stats['hours']:
+        row['pct'] = round(100 * row['count'] / stats['hour_max'])
+    for row in stats['weekdays']:
+        row['pct'] = round(100 * row['count'] / stats['day_max'])
+    to_mark = []
+    if tutor:
+        to_mark = [b for b in bookings.filter(status=Booking.CONFIRMED).select_related('slot', 'student__user')
+                   if b.slot.is_past][:10]
+    return render(request, 'core/analytics.html', {'stats': stats, 'scope': scope, 'to_mark': to_mark})
 
 
 # --------------------------------------------------------------------------- notifications

@@ -39,6 +39,7 @@
           <a href="{% url 'favorites' %}" {% if request.resolver_match.url_name == 'favorites' %}aria-current="page"{% endif %}>Saved</a>
         {% elif user.tutor_profile %}
           <a href="{% url 'manage_slots' %}" {% if request.resolver_match.url_name == 'manage_slots' %}aria-current="page"{% endif %}>Availability</a>
+          <a href="{% url 'analytics' %}" {% if request.resolver_match.url_name == 'analytics' %}aria-current="page"{% endif %}>Analytics</a>
         {% endif %}
       {% endif %}
     </nav>
@@ -68,6 +69,11 @@
     </div>
   </div>
 </header>
+
+{% if email_unverified %}
+<div class="verify-banner" role="alert"><span>Confirm your email ({{ user.email }}) to book sessions or publish availability.</span>
+  <form method="post" action="{% url 'resend_verification' %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}"><button class="btn btn-glass btn-sm" type="submit">Resend link</button></form></div>
+{% endif %}
 
 {% if messages %}
 <div class="toasts" role="status" aria-live="polite">

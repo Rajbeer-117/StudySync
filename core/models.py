@@ -14,6 +14,8 @@ class Student(models.Model):
     bio = models.TextField(blank=True)
     photo = models.ImageField(upload_to='students/photos/', blank=True, validators=[validate_image])
     study_notes = models.FileField(upload_to='students/notes/', blank=True, validators=[validate_pdf])
+    # Existing/seeded accounts count as verified; the sign-up form sets this to False until the emailed link is used.
+    email_verified = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -30,6 +32,8 @@ class Tutor(models.Model):
     photo = models.ImageField(upload_to='tutors/photos/', blank=True, validators=[validate_image])
     requires_approval = models.BooleanField(
         default=False, help_text='New booking requests stay pending until you approve them.')
+    meeting_url = models.URLField(blank=True, help_text='Optional video link (Zoom, Meet, Teams) for online sessions.')
+    email_verified = models.BooleanField(default=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -115,13 +119,15 @@ class Booking(models.Model):
     CONFIRMED = 'confirmed'
     CANCELLED = 'cancelled'
     DECLINED = 'declined'
+    NO_SHOW = 'no_show'
     STATUS_CHOICES = [(PENDING, 'Awaiting approval'), (CONFIRMED, 'Confirmed'),
-                      (CANCELLED, 'Cancelled'), (DECLINED, 'Declined')]
+                      (CANCELLED, 'Cancelled'), (DECLINED, 'Declined'), (NO_SHOW, 'No-show')]
     ACTIVE = (PENDING, CONFIRMED)  # statuses that occupy a slot
 
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='bookings')
     slot = models.ForeignKey(AvailabilitySlot, on_delete=models.PROTECT, related_name='bookings')
     notes = models.TextField(blank=True, max_length=750)
+    tutor_notes = models.TextField(blank=True, max_length=1500, help_text='Written by the tutor after the session; visible to the student.')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=CONFIRMED)
     reminder_sent = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -146,6 +152,10 @@ class Booking(models.Model):
     @property
     def tutor_user(self):
         return self.slot.tutor.user if self.slot.tutor_id else None
+
+    @property
+    def can_mark_no_show(self):
+        return self.status == self.CONFIRMED and self.slot.is_past
 
     @property
     def display_status(self):
@@ -232,3 +242,17 @@ class Favorite(models.Model):
 
     def __str__(self):
         return f'{self.student} ♥ {self.resource}'
+
+
+class WaitlistEntry(models.Model):
+    """A student waiting for a booked slot to open up again."""
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='waitlist_entries')
+    slot = models.ForeignKey(AvailabilitySlot, on_delete=models.CASCADE, related_name='waitlist')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+        constraints = [models.UniqueConstraint(fields=['student', 'slot'], name='one_waitlist_entry_per_student_slot')]
+
+    def __str__(self):
+        return f'{self.student} waiting for {self.slot}'

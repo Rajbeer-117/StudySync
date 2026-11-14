@@ -1,0 +1,31 @@
+{% extends 'core/base.html' %}
+{% block title %}Analytics{% endblock %}
+{% block content %}
+<div class="container page">
+  <header class="page-head reveal"><span class="kicker">{{ scope }}</span><h1>Analytics</h1><p>How sessions are going: volume, reliability and the busiest times.</p><a class="btn btn-glass btn-sm" href="{% url 'analytics_csv' %}">{% include 'core/_icon.html' with name='download' %} Download CSV</a></header>
+  <div class="stat-grid reveal">
+    <div class="stat glass"><strong>{{ stats.total }}</strong><span>Total bookings</span></div>
+    <div class="stat glass"><strong>{{ stats.held }}</strong><span>Sessions held</span></div>
+    <div class="stat glass"><strong>{{ stats.upcoming }}</strong><span>Upcoming</span></div>
+    <div class="stat glass"><strong>{{ stats.cancel_rate }}%</strong><span>Cancelled or declined</span></div>
+    <div class="stat glass"><strong>{{ stats.no_show_rate }}%</strong><span>No-show rate</span></div>
+    <div class="stat glass"><strong>{% if stats.avg_rating %}{{ stats.avg_rating }}{% else %}–{% endif %}</strong><span>Average rating ({{ stats.review_count }})</span></div>
+  </div>
+  <div class="two-col">
+    <section class="glass panel reveal"><h2>Busiest hours</h2>
+      {% for h in stats.hours %}<div class="bar"><span>{{ h.label }}</span><i><b style="width:{{ h.pct }}%"></b></i><span>{{ h.count }}</span></div>{% empty %}<p class="hint">No bookings yet.</p>{% endfor %}
+    </section>
+    <section class="glass panel reveal"><h2>By weekday</h2>
+      {% for d in stats.weekdays %}<div class="bar"><span>{{ d.label }}</span><i><b style="width:{{ d.pct }}%"></b></i><span>{{ d.count }}</span></div>{% endfor %}
+    </section>
+  </div>
+  {% if to_mark %}
+  <section class="glass panel reveal"><h2>Did everyone show up?</h2><p class="hint">Past confirmed sessions. Marking a no-show records it against the student.</p>
+    {% for b in to_mark %}
+    <div class="waitlist-row"><span>{{ b.student.user.get_full_name|default:b.student.user.email }} · {{ b.slot.date|date:'M j' }} {{ b.slot.start_time|time:'g:i A' }}</span>
+      <form method="post" action="{% url 'tutor_mark_no_show' b.pk %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}"><button class="btn btn-glass btn-sm" type="submit" data-confirm="Mark as a no-show?">No-show</button></form></div>
+    {% endfor %}
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

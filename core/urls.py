@@ -40,6 +40,16 @@ urlpatterns = [
     path('tutor/bookings/<int:pk>/cancel/', views.tutor_cancel_booking, name='tutor_cancel_booking'),
     path('tutor/bookings/<int:pk>/decide/', views.tutor_decide_booking, name='tutor_decide_booking'),
 
+    path('accounts/verify/resend/', views.resend_verification, name='resend_verification'),
+    path('accounts/verify/<str:token>/', views.verify_email, name='verify_email'),
+
+    path('waitlist/<int:slot_id>/join/', views.waitlist_join, name='waitlist_join'),
+    path('waitlist/<int:slot_id>/leave/', views.waitlist_leave, name='waitlist_leave'),
+    path('tutor/bookings/<int:pk>/no-show/', views.tutor_mark_no_show, name='tutor_mark_no_show'),
+    path('analytics/', views.analytics, name='analytics'),
+    path('analytics/export.csv', views.analytics_csv, name='analytics_csv'),
+    path('tutor/bookings/<int:pk>/notes/', views.tutor_session_notes, name='tutor_session_notes'),
+
     path('notifications/', views.notifications, name='notifications'),
     path('notifications/read-all/', views.notifications_read_all, name='notifications_read_all'),
     path('notifications/<int:pk>/go/', views.notification_go, name='notification_go'),

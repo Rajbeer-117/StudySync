@@ -2,20 +2,21 @@ from django.contrib import admin
 from django.utils import timezone
 
 from .models import (AvailabilitySlot, Booking, BookingMessage, Favorite, Notification, Review, Room,
-                     Student, Tutor)
+                     Student, Tutor, WaitlistEntry)
 
 
 @admin.register(Student)
 class StudentAdmin(admin.ModelAdmin):
-    list_display = ('user', 'created_at')
+    list_display = ('user', 'email_verified', 'created_at')
+    list_filter = ('email_verified',)
     search_fields = ('user__username', 'user__first_name', 'user__last_name')
 
 
 @admin.register(Tutor)
 class TutorAdmin(admin.ModelAdmin):
-    list_display = ('display_name', 'subjects', 'location', 'requires_approval', 'is_active')
+    list_display = ('display_name', 'subjects', 'location', 'requires_approval', 'email_verified', 'is_active')
     list_editable = ('is_active', 'requires_approval')
-    list_filter = ('is_active', 'requires_approval', 'location')
+    list_filter = ('is_active', 'requires_approval', 'email_verified', 'location')
     search_fields = ('display_name', 'subjects', 'location')
 
 
@@ -48,6 +49,13 @@ class BookingAdmin(admin.ModelAdmin):
     @admin.action(description='Confirm selected pending bookings')
     def mark_confirmed(self, request, queryset):
         queryset.filter(status=Booking.PENDING).update(status=Booking.CONFIRMED)
+
+
+@admin.register(WaitlistEntry)
+class WaitlistEntryAdmin(admin.ModelAdmin):
+    list_display = ('student', 'slot', 'created_at')
+    list_filter = ('slot__date',)
+    search_fields = ('student__user__email', 'slot__tutor__display_name', 'slot__room__name')
 
 
 @admin.register(BookingMessage)

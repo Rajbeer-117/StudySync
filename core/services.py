@@ -10,7 +10,11 @@ from django.db.models import Exists, OuterRef, Q
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import AvailabilitySlot, Booking, BookingMessage, Notification
+from .models import AvailabilitySlot, Booking, BookingMessage, Notification, WaitlistEntry
+
+NO_SHOW_LIMIT = 3          # no-shows within NO_SHOW_WINDOW_DAYS that pause booking
+NO_SHOW_WINDOW_DAYS = 60
+MAX_RECURRING_WEEKS = 8
 
 
 class BookingError(Exception):
@@ -62,9 +66,26 @@ def student_clash(student, slot, exclude=None):
     return qs.exists()
 
 
+def taken_slots(queryset):
+    """Future active slots that are currently held by someone (the opposite of available_slots)."""
+    now = timezone.localtime()
+    free = available_slots(queryset).values('pk')
+    return (queryset.filter(is_active=True)
+            .filter(Q(date__gt=now.date()) | Q(date=now.date(), start_time__gt=now.time()))
+            .exclude(pk__in=free).select_related('tutor', 'room').order_by('date', 'start_time'))
+
+
+def recent_no_shows(student):
+    since = timezone.now() - timedelta(days=NO_SHOW_WINDOW_DAYS)
+    return Booking.objects.filter(student=student, status=Booking.NO_SHOW, updated_at__gte=since).count()
+
+
 # --------------------------------------------------------------------------- booking
 def create_booking(student, slot_id, notes=''):
     """Create a booking atomically. Raises BookingError with a friendly message."""
+    if recent_no_shows(student) >= NO_SHOW_LIMIT:
+        raise BookingError(f'Booking is paused after {NO_SHOW_LIMIT} missed sessions in {NO_SHOW_WINDOW_DAYS} days. '
+                           'Please contact your tutor or an administrator.')
     with transaction.atomic():
         slot = (AvailabilitySlot.objects.select_for_update().select_related('tutor', 'room')
                 .filter(pk=slot_id).first())
@@ -104,6 +125,7 @@ def reschedule_booking(booking, new_slot_id):
         old_slot = current.slot
         current.slot = new
         current.save(update_fields=['slot', 'updated_at'])
+    notify_waitlist(old_slot)
     return current, old_slot
 
 
@@ -114,7 +136,87 @@ def set_status(booking, status):
         booking.cancelled_at = timezone.now()
         fields.append('cancelled_at')
     booking.save(update_fields=fields)
+    if status in (Booking.CANCELLED, Booking.DECLINED):
+        notify_waitlist(booking.slot)
     return booking
+
+
+def create_recurring(student, slot_id, notes='', weeks=1):
+    """Book a slot and the same time on following weeks (up to MAX_RECURRING_WEEKS in total).
+
+    Weeks whose matching slot does not exist, is taken, or clashes are skipped, never forced.
+    Returns (bookings, skipped_dates). The first booking must succeed or BookingError propagates.
+    """
+    weeks = max(1, min(int(weeks), MAX_RECURRING_WEEKS))
+    first = create_booking(student, slot_id, notes)
+    bookings, skipped = [first], []
+    base = first.slot
+    for i in range(1, weeks):
+        target = base.date + timedelta(weeks=i)
+        match = AvailabilitySlot.objects.filter(
+            tutor=base.tutor, room=base.room, date=target,
+            start_time=base.start_time, end_time=base.end_time, is_active=True).first()
+        if match is None:
+            skipped.append(target)
+            continue
+        try:
+            bookings.append(create_booking(student, match.pk, notes))
+        except BookingError:
+            skipped.append(target)
+    return bookings, skipped
+
+
+# --------------------------------------------------------------------------- waitlist
+def join_waitlist(student, slot):
+    if not taken_slots(AvailabilitySlot.objects.filter(pk=slot.pk)).exists():
+        raise BookingError('That time is open, so you can book it right now.')
+    if Booking.objects.filter(student=student, slot=slot, status__in=Booking.ACTIVE).exists():
+        raise BookingError('You already hold this time.')
+    entry, created = WaitlistEntry.objects.get_or_create(student=student, slot=slot)
+    return entry, created
+
+
+def notify_waitlist(slot):
+    """After a slot frees up, tell everyone waiting (first come, first served at booking time).
+
+    Entries are removed once notified. Returns how many students were told.
+    """
+    if not slot_available(slot):
+        return 0
+    entries = list(WaitlistEntry.objects.filter(slot=slot).select_related('student__user'))
+    for entry in entries:
+        user = entry.student.user
+        who = slot.resource
+        when = when_text(slot)
+        url = reverse('tutor_detail', args=[slot.tutor_id]) if slot.tutor_id else reverse('room_detail', args=[slot.room_id])
+        push(user, 'waitlist', f'A spot opened: {who}', f'{when}. Book it before someone else does.', url)
+        _mail(user, f'A spot opened with {who}', f'Good news: the time you were waiting for is open again.\nWhen: {when}\nBook it quickly in StudySync.')
+    WaitlistEntry.objects.filter(pk__in=[e.pk for e in entries]).delete()
+    return len(entries)
+
+
+# --------------------------------------------------------------------------- analytics
+def analytics_for(bookings):
+    """Summary numbers for a Booking queryset (a tutor's own, or everything for staff)."""
+    from collections import Counter
+    from django.db.models import Avg
+    rows = list(bookings.select_related('slot'))
+    total = len(rows)
+    by_status = Counter(b.status for b in rows)
+    held = sum(1 for b in rows if b.is_completed)
+    hours = Counter(b.slot.start_time.hour for b in rows if b.status in (Booking.CONFIRMED, Booking.PENDING, Booking.NO_SHOW))
+    weekdays = Counter(b.slot.date.weekday() for b in rows if b.status in (Booking.CONFIRMED, Booking.NO_SHOW))
+    closed = by_status[Booking.CANCELLED] + by_status[Booking.DECLINED]
+    attended = held + by_status[Booking.NO_SHOW]
+    return {
+        'total': total, 'held': held, 'upcoming': sum(1 for b in rows if b.is_active and not b.slot.is_past),
+        'cancelled': by_status[Booking.CANCELLED], 'declined': by_status[Booking.DECLINED],
+        'no_show': by_status[Booking.NO_SHOW],
+        'cancel_rate': round(100 * closed / total) if total else 0,
+        'no_show_rate': round(100 * by_status[Booking.NO_SHOW] / attended) if attended else 0,
+        'hours': [{'label': f'{h % 12 or 12} {"AM" if h < 12 else "PM"}', 'count': c} for h, c in sorted(hours.items())],
+        'weekdays': [{'label': n, 'count': weekdays.get(i, 0)} for i, n in enumerate(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'])],
+    }
 
 
 def slot_start(slot):

@@ -18,6 +18,7 @@
         <label class="field"><span>Time</span><span class="select-shell">{{ form.time }}{% include 'core/_icon.html' with name='chevron-down' %}</span></label></div>
         <label class="field"><span>Location</span><span class="select-shell">{{ form.location }}{% include 'core/_icon.html' with name='chevron-down' %}</span></label>
         <label class="field"><span>Room size</span><span class="select-shell">{{ form.capacity }}{% include 'core/_icon.html' with name='chevron-down' %}</span></label>
+        <label class="field"><span>Format</span><span class="select-shell">{{ form.online }}{% include 'core/_icon.html' with name='chevron-down' %}</span></label>
         <label class="field"><span>Sort by</span><span class="select-shell">{{ form.sort }}{% include 'core/_icon.html' with name='chevron-down' %}</span></label>
         {% if form.errors %}<div class="form-error" role="alert">Please choose options from the lists.</div>{% endif %}
         <button class="btn btn-primary btn-block" type="submit">{% include 'core/_icon.html' with name='search' %} Search</button>

@@ -5,7 +5,7 @@ from django.urls import reverse
 from django.utils import timezone
 from . import services
 from django.core.cache import cache
-from .models import AvailabilitySlot, Booking, Favorite, Notification, Review, Room, Student, Tutor
+from .models import AvailabilitySlot, Booking, Favorite, Notification, Review, Room, Student, Tutor, WaitlistEntry
 
 User = get_user_model()
 
@@ -408,3 +408,330 @@ class CrossPlatformTests(TestCase):
         html = self.client.get(reverse('home')).content.decode()
         for needle in ('viewport-fit=cover', 'apple-touch-icon', 'rel="manifest"', 'apple-mobile-web-app-capable', 'theme-color'):
             self.assertIn(needle, html)
+
+
+class V3Base(TestCase):
+    """Shared fixtures for the v3 feature tests."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.tutor_user = User.objects.create_user('tutor3@example.test', 'tutor3@example.test', 'GoodPassword123!')
+        cls.tutor = Tutor.objects.create(user=cls.tutor_user, display_name='T3', subjects='Math',
+                                         meeting_url='https://meet.example.test/abc')
+        cls.user = User.objects.create_user('s3@example.test', 's3@example.test', 'GoodPassword123!', first_name='Sam')
+        cls.student = Student.objects.create(user=cls.user)
+        cls.user2 = User.objects.create_user('s4@example.test', 's4@example.test', 'GoodPassword123!')
+        cls.student2 = Student.objects.create(user=cls.user2)
+        cls.day = timezone.localdate() + timedelta(days=3)
+
+    def slot(self, offset=0, hour=10):
+        return AvailabilitySlot.objects.create(tutor=self.tutor, date=self.day + timedelta(days=offset),
+                                               start_time=time(hour), end_time=time(hour + 1))
+
+    def past_confirmed(self):
+        slot = AvailabilitySlot.objects.create(tutor=self.tutor, date=timezone.localdate() - timedelta(days=1),
+                                               start_time=time(9), end_time=time(10))
+        return Booking.objects.create(student=self.student, slot=slot, status=Booking.CONFIRMED)
+
+
+class V3ModelTests(V3Base):
+    """Rajbeer: schema additions behave as designed."""
+
+    def test_new_fields_default_safely(self):
+        self.assertTrue(self.student.email_verified)      # legacy and seeded accounts stay verified
+        self.assertEqual(self.past_confirmed().tutor_notes, '')
+
+    def test_waitlist_entry_is_unique_per_student_and_slot(self):
+        from django.db import IntegrityError, transaction
+        slot = self.slot()
+        WaitlistEntry.objects.create(student=self.student, slot=slot)
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            WaitlistEntry.objects.create(student=self.student, slot=slot)
+
+    def test_no_show_is_not_an_active_status(self):
+        self.assertNotIn(Booking.NO_SHOW, Booking.ACTIVE)
+
+    def test_waitlist_registered_in_admin(self):
+        from django.contrib import admin
+        self.assertIn(WaitlistEntry, admin.site._registry)
+
+
+class EmailVerificationTests(V3Base):
+    """Krish: sign-up email, signed link, resend limit, gating."""
+
+    def register(self, role='student', email='new@example.test'):
+        from django.core import mail
+        mail.outbox.clear()
+        return self.client.post(reverse('register'), {
+            'full_name': 'New Person', 'email': email, 'role': role,
+            'password1': 'GoodPassword123!', 'password2': 'GoodPassword123!'})
+
+    def test_registration_sends_link_and_blocks_booking_until_verified(self):
+        from django.core import mail
+        self.register()
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('/accounts/verify/', mail.outbox[0].body)
+        new = Student.objects.get(user__email='new@example.test')
+        self.assertFalse(new.email_verified)
+        slot = self.slot()
+        resp = self.client.get(reverse('start_booking', args=[slot.pk]))
+        self.assertRedirects(resp, reverse('dashboard'), fetch_redirect_response=False)
+        link = mail.outbox[0].body.split('\n')[3].strip()
+        self.client.get(link)
+        new.refresh_from_db()
+        self.assertTrue(new.email_verified)
+        self.assertEqual(self.client.get(reverse('start_booking', args=[slot.pk])).status_code, 200)
+
+    def test_bad_or_mismatched_token_is_rejected(self):
+        from django.core import signing
+        self.register(email='x@example.test')
+        resp = self.client.get(reverse('verify_email', args=['not-a-real-token']))
+        self.assertEqual(resp.status_code, 302)
+        self.assertFalse(Student.objects.get(user__email='x@example.test').email_verified)
+        token = signing.dumps({'u': self.user.pk, 'e': 'someone-else@example.test'}, salt='studysync.email-verification')
+        self.client.get(reverse('verify_email', args=[token]))  # email no longer matches the account
+        self.assertFalse(Student.objects.get(user__email='x@example.test').email_verified)
+
+    def test_expired_token_is_rejected(self):
+        from unittest import mock
+        from . import verification
+        self.register(email='old@example.test')
+        user = User.objects.get(email='old@example.test')
+        token = verification.make_token(user)
+        with mock.patch.object(verification, 'MAX_AGE_SECONDS', -1):
+            self.client.get(reverse('verify_email', args=[token]))
+        self.assertFalse(Student.objects.get(user=user).email_verified)
+
+    def test_resend_is_rate_limited(self):
+        from django.core import mail
+        cache.clear()
+        self.register(email='y@example.test')
+        mail.outbox.clear()
+        self.client.post(reverse('resend_verification'))
+        self.client.post(reverse('resend_verification'))
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_unverified_tutor_cannot_publish_slots(self):
+        self.register(role='tutor', email='tt@example.test')
+        self.client.post(reverse('manage_slots'), {'date': str(self.day), 'start_time': '09:00', 'end_time': '10:00', 'repeat_weeks': 1})
+        self.assertEqual(AvailabilitySlot.objects.filter(tutor__user__email='tt@example.test').count(), 0)
+
+
+class SessionNotesTests(V3Base):
+    """Krish: tutor follow-up notes after a session."""
+
+    def test_tutor_notes_saved_and_student_notified(self):
+        booking = self.past_confirmed()
+        self.client.force_login(self.tutor_user)
+        self.client.post(reverse('tutor_session_notes', args=[booking.pk]), {'tutor_notes': 'Practise problem set 3'})
+        booking.refresh_from_db()
+        self.assertEqual(booking.tutor_notes, 'Practise problem set 3')
+        self.assertTrue(Notification.objects.filter(user=self.user, title__contains='shared notes').exists())
+
+    def test_notes_rejected_for_future_session_and_for_students(self):
+        future = services.create_booking(self.student, self.slot().pk)
+        self.client.force_login(self.tutor_user)
+        self.client.post(reverse('tutor_session_notes', args=[future.pk]), {'tutor_notes': 'too early'})
+        future.refresh_from_db()
+        self.assertEqual(future.tutor_notes, '')
+        past = self.past_confirmed()
+        self.client.force_login(self.user)
+        self.assertEqual(self.client.post(reverse('tutor_session_notes', args=[past.pk]), {'tutor_notes': 'x'}).status_code, 404)
+
+
+class WaitlistTests(V3Base):
+    """Vraj: waitlist for booked slots."""
+
+    def test_waitlist_notifies_when_slot_is_cancelled(self):
+        slot = self.slot()
+        booking = services.create_booking(self.student, slot.pk)
+        self.client.force_login(self.user2)
+        self.client.post(reverse('waitlist_join', args=[slot.pk]))
+        self.assertTrue(WaitlistEntry.objects.filter(student=self.student2, slot=slot).exists())
+        self.client.post(reverse('waitlist_join', args=[slot.pk]))  # idempotent
+        self.assertEqual(WaitlistEntry.objects.count(), 1)
+        services.set_status(booking, Booking.CANCELLED)
+        self.assertTrue(Notification.objects.filter(user=self.user2, kind='waitlist').exists())
+        self.assertFalse(WaitlistEntry.objects.exists())
+
+    def test_cannot_join_waitlist_for_open_slot(self):
+        slot = self.slot()
+        self.client.force_login(self.user2)
+        self.client.post(reverse('waitlist_join', args=[slot.pk]))
+        self.assertFalse(WaitlistEntry.objects.exists())
+
+    def test_waitlist_notified_on_reschedule(self):
+        a, b = self.slot(0, 10), self.slot(1, 10)
+        booking = services.create_booking(self.student, a.pk)
+        services.join_waitlist(self.student2, a)
+        services.reschedule_booking(booking, b.pk)
+        self.assertTrue(Notification.objects.filter(user=self.user2, kind='waitlist').exists())
+
+    def test_leave_waitlist(self):
+        slot = self.slot()
+        services.create_booking(self.student, slot.pk)
+        services.join_waitlist(self.student2, slot)
+        self.client.force_login(self.user2)
+        self.client.post(reverse('waitlist_leave', args=[slot.pk]))
+        self.assertFalse(WaitlistEntry.objects.exists())
+
+
+class RecurringBookingTests(V3Base):
+    """Vraj: weekly repeat bookings."""
+
+    def test_recurring_books_matching_weeks_and_skips_gaps(self):
+        base = self.slot(0)
+        self.slot(7)           # week 2 exists; week 3 does not
+        bookings, skipped = services.create_recurring(self.student, base.pk, 'weekly', weeks=3)
+        self.assertEqual(len(bookings), 2)
+        self.assertEqual(skipped, [self.day + timedelta(days=14)])
+
+    def test_recurring_skips_taken_week(self):
+        base, week2 = self.slot(0), self.slot(7)
+        services.create_booking(self.student2, week2.pk)
+        bookings, skipped = services.create_recurring(self.student, base.pk, weeks=2)
+        self.assertEqual(len(bookings), 1)
+        self.assertEqual(len(skipped), 1)
+
+    def test_recurring_via_views(self):
+        base = self.slot(0)
+        self.slot(7)
+        self.client.force_login(self.user)
+        self.client.post(reverse('start_booking', args=[base.pk]), {'notes': '', 'repeat_weeks': 2})
+        self.client.post(reverse('booking_review'))
+        self.assertEqual(Booking.objects.filter(student=self.student).count(), 2)
+
+
+class NoShowTests(V3Base):
+    """Vraj: marking and limiting no-shows."""
+
+    def test_tutor_marks_no_show_and_only_for_past_sessions(self):
+        past = self.past_confirmed()
+        future = services.create_booking(self.student, self.slot().pk)
+        self.client.force_login(self.tutor_user)
+        self.client.post(reverse('tutor_mark_no_show', args=[past.pk]))
+        self.client.post(reverse('tutor_mark_no_show', args=[future.pk]))
+        past.refresh_from_db(); future.refresh_from_db()
+        self.assertEqual(past.status, Booking.NO_SHOW)
+        self.assertEqual(future.status, Booking.CONFIRMED)
+
+    def test_other_tutor_cannot_mark_no_show(self):
+        past = self.past_confirmed()
+        other = User.objects.create_user('o@example.test', 'o@example.test', 'GoodPassword123!')
+        Tutor.objects.create(user=other, display_name='Other', subjects='x')
+        self.client.force_login(other)
+        self.assertEqual(self.client.post(reverse('tutor_mark_no_show', args=[past.pk])).status_code, 404)
+
+    def test_three_no_shows_pause_booking(self):
+        for i in range(services.NO_SHOW_LIMIT):
+            slot = AvailabilitySlot.objects.create(tutor=self.tutor, date=timezone.localdate() - timedelta(days=i + 1),
+                                                   start_time=time(9), end_time=time(10))
+            Booking.objects.create(student=self.student, slot=slot, status=Booking.NO_SHOW)
+        with self.assertRaises(services.BookingError):
+            services.create_booking(self.student, self.slot().pk)
+
+
+class AnalyticsTests(V3Base):
+    """Harsh: analytics page and CSV export."""
+
+    def test_analytics_access_and_numbers(self):
+        self.past_confirmed()
+        services.create_booking(self.student, self.slot().pk)
+        self.client.force_login(self.user)
+        self.assertEqual(self.client.get(reverse('analytics')).status_code, 302)  # students are redirected
+        self.client.force_login(self.tutor_user)
+        resp = self.client.get(reverse('analytics'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.context['stats']['total'], 2)
+        self.assertEqual(resp.context['stats']['held'], 1)
+        self.assertContains(resp, 'Did everyone show up?')
+
+    def test_analytics_scoped_to_own_tutor(self):
+        services.create_booking(self.student, self.slot().pk)
+        other = User.objects.create_user('o2@example.test', 'o2@example.test', 'GoodPassword123!')
+        Tutor.objects.create(user=other, display_name='Other2', subjects='x')
+        self.client.force_login(other)
+        self.assertEqual(self.client.get(reverse('analytics')).context['stats']['total'], 0)
+
+    def test_empty_analytics_page_renders(self):
+        self.client.force_login(self.tutor_user)
+        self.assertEqual(self.client.get(reverse('analytics')).status_code, 200)
+
+    def test_csv_export_scoped_and_protected(self):
+        self.past_confirmed()
+        self.assertEqual(self.client.get(reverse('analytics_csv')).status_code, 302)  # login required
+        self.client.force_login(self.user)
+        self.assertEqual(self.client.get(reverse('analytics_csv')).status_code, 404)  # students have no analytics
+        self.client.force_login(self.tutor_user)
+        resp = self.client.get(reverse('analytics_csv'))
+        self.assertEqual(resp['Content-Type'], 'text/csv')
+        body = resp.content.decode()
+        self.assertIn('s3@example.test', body)
+        self.assertEqual(len(body.strip().splitlines()), 2)
+
+    def test_csv_neutralises_formula_cells(self):
+        evil = User.objects.create_user('=cmd@example.test', '=cmd@example.test', 'GoodPassword123!')
+        other = Student.objects.create(user=evil)
+        Booking.objects.create(student=other, slot=self.slot(), status=Booking.CONFIRMED)
+        self.client.force_login(self.tutor_user)
+        self.assertIn("'=cmd@example.test", self.client.get(reverse('analytics_csv')).content.decode())
+
+
+class OnlineFilterTests(V3Base):
+    """Harsh: search filter for tutors who offer online sessions."""
+
+    def test_online_filter_only_lists_tutors_with_a_link(self):
+        Tutor.objects.create(display_name='In Person Tutor', subjects='Math')
+        resp = self.client.get(reverse('catalog'), {'online': 'yes'})
+        self.assertContains(resp, 'T3')
+        self.assertNotContains(resp, 'In Person Tutor')
+        self.client.cookies.clear()  # the catalog remembers filters in a cookie
+        self.assertContains(self.client.get(reverse('catalog')), 'In Person Tutor')
+
+    def test_tutor_can_save_meeting_link_in_profile_form(self):
+        from .forms import TutorProfileForm
+        form = TutorProfileForm({'display_name': 'T3', 'subjects': 'Math', 'location': 'Leddy Library',
+                                 'meeting_url': 'https://meet.example.test/new'}, instance=self.tutor)
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertFalse(TutorProfileForm({'display_name': 'T3', 'subjects': 'Math', 'location': 'x',
+                                           'meeting_url': 'not a url'}, instance=self.tutor).is_valid())
+
+
+class V3InterfaceTests(V3Base):
+    """Bhavya: what people actually see on the new screens."""
+
+    def test_detail_page_lists_full_slots_with_waitlist_button(self):
+        slot = self.slot()
+        services.create_booking(self.student, slot.pk)
+        self.client.force_login(self.user2)
+        resp = self.client.get(reverse('tutor_detail', args=[self.tutor.pk]))
+        self.assertContains(resp, 'Join waitlist')
+        services.join_waitlist(self.student2, slot)
+        self.assertContains(self.client.get(reverse('tutor_detail', args=[self.tutor.pk])), 'On waitlist')
+
+    def test_meeting_link_shown_for_confirmed_booking(self):
+        booking = services.create_booking(self.student, self.slot().pk)
+        self.client.force_login(self.user)
+        self.assertContains(self.client.get(reverse('booking_detail', args=[booking.pk])), 'https://meet.example.test/abc')
+
+    def test_student_sees_session_notes_and_tutor_sees_form(self):
+        booking = self.past_confirmed()
+        booking.tutor_notes = 'Review chapter 4'
+        booking.save()
+        self.client.force_login(self.user)
+        self.assertContains(self.client.get(reverse('booking_detail', args=[booking.pk])), 'Review chapter 4')
+        self.client.force_login(self.tutor_user)
+        self.assertContains(self.client.get(reverse('booking_detail', args=[booking.pk])), 'Save and share with student')
+
+    def test_unverified_user_sees_banner_and_verified_does_not(self):
+        Student.objects.filter(pk=self.student.pk).update(email_verified=False)
+        self.client.force_login(self.user)
+        self.assertContains(self.client.get(reverse('dashboard')), 'Resend link')
+        Student.objects.filter(pk=self.student.pk).update(email_verified=True)
+        self.assertNotContains(self.client.get(reverse('dashboard')), 'Resend link')
+
+    def test_tutor_nav_has_analytics_and_no_show_button(self):
+        booking = self.past_confirmed()
+        self.client.force_login(self.tutor_user)
+        self.assertContains(self.client.get(reverse('dashboard')), 'Analytics')
+        self.assertContains(self.client.get(reverse('booking_detail', args=[booking.pk])), 'Mark as no-show')
