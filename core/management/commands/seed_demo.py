@@ -8,6 +8,8 @@ from core.models import AvailabilitySlot, Booking, BookingMessage, Review, Room,
 
 User = get_user_model()
 
+ADVISOR_SUFFIX = ' (Demo)'  # fictional faculty advisors: one per required MAC course, office hours only
+
 
 class Command(BaseCommand):
     help = 'Create sample StudySync users, tutors, rooms, and upcoming availability.'
@@ -100,7 +102,7 @@ class Command(BaseCommand):
                                 room=room, tutor=None, date=day, start_time=start, end_time=end)
                             count += int(created)
                 continue
-            for tutor in Tutor.objects.filter(is_active=True):
+            for tutor in Tutor.objects.filter(is_active=True).exclude(display_name__endswith=ADVISOR_SUFFIX):
                 for start, end in zip(starts[:5], ends[:5]):
                     _, created = AvailabilitySlot.objects.get_or_create(
                         tutor=tutor, room=None, date=day, start_time=start, end_time=end
@@ -112,14 +114,48 @@ class Command(BaseCommand):
                         room=room, tutor=None, date=day, start_time=start, end_time=end
                     )
                     count += int(created)
+        self._seed_advisors()
         self._seed_history(student)
         self._seed_activity()
         self.stdout.write(self.style.SUCCESS(f'Demo ready; added {count} availability slots.'))
+        self.stdout.write('Faculty advisor (demo, approves requests): advisor@example.test / Demo12345!')
         self.stdout.write('Student: student@example.test / Demo12345!')
         self.stdout.write('Tutor:   tutor@example.test / Demo12345!')
         self.stdout.write('Tutor (approves requests): alex@example.test / Demo12345!')
         self.stdout.write(f'Totals: {Tutor.objects.count()} tutors, {Room.objects.count()} rooms, {AvailabilitySlot.objects.count()} slots, {Booking.objects.count()} bookings.')
         self.stdout.write('These credentials and demo data are for local development only.')
+
+    def _seed_advisors(self):
+        """Fictional faculty advisors, one per required MAC course, bookable during weekly office hours.
+
+        Names are invented on purpose: real faculty have not agreed to appear in this demo.
+        """
+        advisors = [  # (name, subjects, bio, weekday 1=Tue 3=Thu, hour)
+            ('Dr. Avery Quinn', 'Internet Applications, Distributed Systems', 'Faculty advisor for COMP 8347 (demo). Office hours: web architecture and course project guidance.', 1, 13),
+            ('Dr. Morgan Ellis', 'Advanced Databases', 'Faculty advisor for COMP 8157 (demo). Office hours: schema design, indexing and query plans.', 3, 13),
+            ('Dr. Riley Banerjee', 'Advanced Systems Programming', 'Faculty advisor for COMP 8567 (demo). Office hours: C, processes and sockets.', 1, 14),
+            ('Dr. Casey Lindqvist', 'Advanced Software Engineering', 'Faculty advisor for COMP 8117 (demo). Office hours: requirements, testing and team process.', 3, 14),
+            ('Dr. Jamie Okonkwo', 'Networking and Data Security', 'Faculty advisor for COMP 8677 (demo). Office hours: protocols, cryptography and secure design.', 1, 15),
+            ('Dr. Taylor Brandt', 'Advanced Computing Concepts', 'Faculty advisor for COMP 8547 (demo). Office hours: algorithms and complexity.', 3, 15),
+            ('Dr. Sam Whitfield', 'Internship and Project', 'Faculty advisor for COMP 8967/8977 (demo). Office hours: project scope and progress evaluations.', 1, 16),
+            ('Dr. Robin Castellanos', 'Artificial Intelligence', 'Faculty advisor for the optional MAC AI specialization (demo). Office hours: course selection and project topics.', 3, 16),
+        ]
+        for i, (name, subjects, bio, weekday, hour) in enumerate(advisors):
+            full_name = name + ADVISOR_SUFFIX
+            user = None
+            if i == 0:
+                user, made = User.objects.get_or_create(username='advisor@example.test', defaults={
+                    'email': 'advisor@example.test', 'first_name': 'Avery', 'last_name': 'Quinn (Demo)'})
+                if made:
+                    user.set_password('Demo12345!')
+                    user.save()
+            advisor, _ = Tutor.objects.get_or_create(display_name=full_name, defaults={
+                'user': user, 'subjects': subjects, 'bio': bio, 'location': '300 Ouellette',
+                'requires_approval': True, 'meeting_url': 'https://meet.example.test/advisor-%d' % (i + 1)})
+            for week in range(0, 5):
+                day = timezone.localdate() + timedelta(days=1) + timedelta(days=(weekday - (timezone.localdate() + timedelta(days=1)).weekday()) % 7 + 7 * week)
+                AvailabilitySlot.objects.get_or_create(tutor=advisor, room=None, date=day,
+                                                       start_time=time(hour, 0), end_time=time(hour + 1, 0))
 
     def _seed_activity(self):
         """Past bookings (completed, cancelled, no-show) so Analytics has data, plus a full slot with a waitlist."""
