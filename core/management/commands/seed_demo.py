@@ -1,4 +1,4 @@
-"""Idempotent demo-only seed data. Peer tutors are fictional; faculty profiles are marked demo."""
+"""Idempotent demo-only seed data. Peer tutors are the Group 11 members; faculty profiles are marked demo."""
 from datetime import timedelta, time
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
@@ -24,35 +24,28 @@ class Command(BaseCommand):
         Student.objects.get_or_create(user=student, defaults={'bio': 'Master of Applied Computing (MAC) student, University of Windsor.'})
 
         tutor_user, made = User.objects.get_or_create(
-            username='tutor@example.test', defaults={'email': 'tutor@example.test', 'first_name': 'Jordan', 'last_name': 'Smith'}
+            username='tutor@example.test', defaults={'email': 'tutor@example.test', 'first_name': 'Vrajkumar', 'last_name': 'Patel'}
         )
         if made:
             tutor_user.set_password('Demo12345!')
             tutor_user.save()
 
         alex_user, made = User.objects.get_or_create(
-            username='alex@example.test', defaults={'email': 'alex@example.test', 'first_name': 'Alex', 'last_name': 'Lee'})
+            username='alex@example.test', defaults={'email': 'alex@example.test', 'first_name': 'Rajbeer', 'last_name': 'Kaur Dutta'})
         if made:
             alex_user.set_password('Demo12345!')
             alex_user.save()
 
-        tutors = [  # fictional MAC peer tutors; subjects follow the real MAC course list (COMP codes in each bio)
-            ('Jordan Smith', 'Internet Applications, Distributed Systems', 'Leddy Library', 'MAC peer tutor for COMP 8347: Django models, views, forms, REST and deployment.'),
-            ('Alex Lee', 'Advanced Systems Programming, C', 'Erie Hall', 'MAC peer tutor for COMP 8567: processes, pipes, signals and sockets in C on Linux.'),
-            ('Sam Rivera', 'Internship and Project, Python', 'Lambton Tower', 'MAC peer tutor for COMP 8967/8977: scoping a project, Git workflow and progress evaluations.'),
-            ('Casey Chen', 'Advanced Databases, SQL', 'Leddy Library', 'MAC peer tutor for COMP 8157: query tuning, indexing, transactions and schema design.'),
-            ('Priya Nair', 'Artificial Intelligence, Machine Learning', 'Lambton Tower', 'MAC peer tutor for COMP 8700 and 8740: search, supervised learning and model evaluation.'),
-            ('Omar Haddad', 'Statistical Learning, Data Mining', '300 Ouellette', 'MAC peer tutor for COMP 8590: regression, clustering and practical statistics for projects.'),
-            ('Mei Tanaka', 'Advanced Computing Concepts, Algorithms', 'Erie Hall', 'MAC peer tutor for COMP 8547: algorithm design, complexity and problem solving.'),
-            ('Daniel Okafor', 'Networking and Data Security', '300 Ouellette', 'MAC peer tutor for COMP 8677: TCP/IP, cryptography basics and secure web practices.'),
-            ('Sofia Marino', 'Advanced Software Engineering, Testing', 'Leddy Library', 'MAC peer tutor for COMP 8117: requirements, UML, unit testing and team workflow.'),
-            ('Lucas Bernard', 'Cloud and DevOps, JavaScript', 'CAW Student Centre', 'MAC peer tutor: Docker, CI/CD with GitHub Actions, and front-end JavaScript.'),
-            ('Hannah Kim', 'Deep Learning, Computer Vision', 'Lambton Tower', 'MAC peer tutor for COMP 8610: neural networks, CNNs and PyTorch for course projects.'),
-            ('Ibrahim Yusuf', 'Natural Language Processing, AI', '300 Ouellette', 'MAC peer tutor for COMP 8730: text processing, embeddings and language-model basics.'),
+        self._remove_old_fictional_tutors()
+        tutors = [  # real Group 11 members (MAC students) as peer tutors; subjects follow what each built for COMP 8347
+            ('Vrajkumar Patel', 'Internet Applications, Advanced Systems Programming', 'Leddy Library', 'Group 11 member and MAC student. Built the StudySync booking engine and tests. Peer help with Django, C and Linux.'),
+            ('Rajbeer Kaur Dutta', 'Advanced Databases, Cloud and DevOps', 'Erie Hall', 'Group 11 member and MAC student. Built the StudySync data models, migrations and Docker setup. Peer help with schemas, SQL and deployment.'),
+            ('Harsh Patel', 'Internet Applications, Python', 'Lambton Tower', 'Group 11 member and MAC student. Built StudySync search, uploads and sessions. Peer help with Django forms, search and file handling.'),
+            ('Krishkumar Patel', 'Networking and Data Security, Internet Applications', 'Leddy Library', 'Group 11 member and MAC student. Built StudySync authentication, forms and security. Peer help with login flows and secure web practices.'),
+            ('Bhavya Patel', 'Internet Applications, JavaScript', '300 Ouellette', 'Group 11 member and MAC student. Built the StudySync templates and CSS design. Peer help with HTML, CSS and front-end JavaScript.'),
         ]
-        online = {'Jordan Smith': 'https://meet.example.test/jordan-smith', 'Sam Rivera': 'https://meet.example.test/sam-rivera',
-                  'Priya Nair': 'https://meet.example.test/priya-nair', 'Mei Tanaka': 'https://meet.example.test/mei-tanaka',
-                  'Hannah Kim': 'https://meet.example.test/hannah-kim', 'Ibrahim Yusuf': 'https://meet.example.test/ibrahim-yusuf'}
+        online = {'Vrajkumar Patel': 'https://meet.example.test/vrajkumar-patel', 'Harsh Patel': 'https://meet.example.test/harsh-patel',
+                  'Bhavya Patel': 'https://meet.example.test/bhavya-patel'}
         for i, (name, subjects, location, bio) in enumerate(tutors):
             tutor, _ = Tutor.objects.get_or_create(display_name=name, defaults={
                 'user': tutor_user if i == 0 else None,
@@ -67,7 +60,7 @@ class Command(BaseCommand):
             if i == 0 and tutor.user_id is None:
                 tutor.user = tutor_user
                 tutor.save(update_fields=['user'])
-            if name == 'Alex Lee' and (tutor.user_id is None or not tutor.requires_approval):
+            if name == 'Rajbeer Kaur Dutta' and (tutor.user_id is None or not tutor.requires_approval):
                 tutor.user, tutor.requires_approval = alex_user, True
                 tutor.save(update_fields=['user', 'requires_approval'])
 
@@ -120,10 +113,16 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f'Demo ready; added {count} availability slots.'))
         self.stdout.write('Faculty advisor (demo, approves requests): advisor@example.test / Demo12345!')
         self.stdout.write('Student: student@example.test / Demo12345!')
-        self.stdout.write('Tutor:   tutor@example.test / Demo12345!')
-        self.stdout.write('Tutor (approves requests): alex@example.test / Demo12345!')
+        self.stdout.write('Tutor (Vrajkumar Patel): tutor@example.test / Demo12345!')
+        self.stdout.write('Tutor (Rajbeer Kaur Dutta, approves requests): alex@example.test / Demo12345!')
         self.stdout.write(f'Totals: {Tutor.objects.count()} tutors, {Room.objects.count()} rooms, {AvailabilitySlot.objects.count()} slots, {Booking.objects.count()} bookings.')
         self.stdout.write('These credentials and demo data are for local development only.')
+
+    def _remove_old_fictional_tutors(self):
+        """Earlier demo versions used invented peer tutors; remove them so only real people remain."""
+        old = ['Jordan Smith', 'Alex Lee', 'Sam Rivera', 'Casey Chen', 'Priya Nair', 'Omar Haddad', 'Mei Tanaka',
+               'Daniel Okafor', 'Sofia Marino', 'Lucas Bernard', 'Hannah Kim', 'Ibrahim Yusuf']
+        Tutor.objects.filter(display_name__in=old).delete()
 
     def _seed_advisors(self):
         """Bookable faculty office hours, using names from the School of Computer Science faculty page.
@@ -173,7 +172,7 @@ class Command(BaseCommand):
         pattern = ['confirmed'] * 6 + ['cancelled', 'no_show', 'confirmed', 'declined', 'confirmed', 'no_show']
         hours = [(9, 10), (10, 11), (11, 12), (14, 15), (15, 16), (10, 11), (14, 15), (9, 10), (15, 16), (11, 12), (14, 15), (10, 11)]
         n = 0
-        for name in ('Jordan Smith', 'Alex Lee', 'Sam Rivera', 'Mei Tanaka'):
+        for name in ('Vrajkumar Patel', 'Rajbeer Kaur Dutta', 'Harsh Patel', 'Bhavya Patel'):
             tutor = Tutor.objects.filter(display_name=name).first()
             if not tutor:
                 continue
@@ -190,7 +189,7 @@ class Command(BaseCommand):
                                                'cancelled': Booking.CANCELLED}.get(status, Booking.CONFIRMED))
             n += 1
         # a fully booked future slot with someone waiting, so the waitlist can be shown
-        sam = Tutor.objects.filter(display_name='Sam Rivera').first()
+        sam = Tutor.objects.filter(display_name='Harsh Patel').first()
         if sam:
             full = services.available_slots(AvailabilitySlot.objects.filter(tutor=sam)).order_by('date', 'start_time').first()
             if full:
@@ -201,12 +200,12 @@ class Command(BaseCommand):
         """A finished session for the demo student (so the review flow works) plus sample reviews."""
         demo_student = Student.objects.get(user=demo_user)
         yesterday = timezone.localdate() - timedelta(days=1)
-        past_tutor = Tutor.objects.filter(display_name='Alex Lee').first()
+        past_tutor = Tutor.objects.filter(display_name='Rajbeer Kaur Dutta').first()
         if past_tutor:
             slot, _ = AvailabilitySlot.objects.get_or_create(
                 tutor=past_tutor, room=None, date=yesterday, start_time=time(9, 0), end_time=time(10, 0))
             Booking.objects.get_or_create(student=demo_student, slot=slot, defaults={'notes': 'Django models and migrations review'})
-        upcoming_tutor = Tutor.objects.filter(display_name='Jordan Smith').first()
+        upcoming_tutor = Tutor.objects.filter(display_name='Vrajkumar Patel').first()
         if upcoming_tutor:
             nxt = AvailabilitySlot.objects.filter(
                 tutor=upcoming_tutor, is_active=True, date__gt=timezone.localdate()).order_by('date', 'start_time').first()
@@ -217,7 +216,7 @@ class Command(BaseCommand):
                     services.notify_booking(booking, 'confirmed')
                     BookingMessage.objects.create(booking=booking, sender=demo_user, body='Hi! Could we focus on ORM relationships and migrations?')
                     BookingMessage.objects.create(booking=booking, sender=upcoming_tutor.user, body='Absolutely. Bring your models.py and we will walk through it.')
-        # a pending request waiting on Alex Lee (who approves each booking)
+        # a pending request waiting on Rajbeer (who approves each booking)
         if past_tutor:
             nxt_alex = services.available_slots(AvailabilitySlot.objects.filter(tutor=past_tutor)).first()
             ru, made = User.objects.get_or_create(username='maya@example.test', defaults={'email': 'maya@example.test', 'first_name': 'Maya', 'last_name': 'Demo'})
@@ -228,22 +227,3 @@ class Command(BaseCommand):
             if nxt_alex and requester and not Booking.objects.filter(student=requester, status=Booking.PENDING).exists():
                 req = Booking.objects.create(student=requester, slot=nxt_alex, status=Booking.PENDING, notes='Help with Django forms and validation')
                 services.notify_booking(req, 'requested')
-        sample = [
-            ('Jordan Smith', 5, 'Made the Django ORM finally click. Super patient.'),
-            ('Jordan Smith', 4, 'Clear explanations and great practice exercises.'),
-            ('Sam Rivera', 5, 'Helped me debug my algorithms assignment in one session.'),
-            ('Casey Chen', 5, 'SQL tuning advice was detailed and kind.'),
-            ('Alex Lee', 4, 'Good pacing for pointers and processes in C.'),
-        ]
-        for i, (tutor_name, rating, comment) in enumerate(sample):
-            tutor = Tutor.objects.filter(display_name=tutor_name).first()
-            if not tutor:
-                continue
-            user, made = User.objects.get_or_create(
-                username=f'reviewer{i}@example.test',
-                defaults={'email': f'reviewer{i}@example.test', 'first_name': ['Maya', 'Noah', 'Liam', 'Aisha', 'Ethan'][i], 'last_name': 'Demo'})
-            if made:
-                user.set_unusable_password()
-                user.save()
-            reviewer, _ = Student.objects.get_or_create(user=user)
-            Review.objects.get_or_create(student=reviewer, tutor=tutor, defaults={'rating': rating, 'comment': comment})
