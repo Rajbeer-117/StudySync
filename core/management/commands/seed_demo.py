@@ -1,4 +1,4 @@
-"""Idempotent demo-only seed data. Peer tutors are the Group 11 members; faculty profiles are marked demo."""
+"""Idempotent demo-only seed data. Peer tutors are the Group 11 members; faculty profiles carry illustrative office hours."""
 from datetime import timedelta, time
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
@@ -8,7 +8,7 @@ from core.models import AvailabilitySlot, Booking, BookingMessage, Review, Room,
 
 User = get_user_model()
 
-ADVISOR_SUFFIX = ' (Demo)'  # faculty office-hours demo profiles, always visibly marked
+ADVISOR_SUBJECTS = 'Faculty office hours'  # marks the faculty profiles so they get weekly office hours, not peer-tutor slots
 
 
 class Command(BaseCommand):
@@ -95,7 +95,7 @@ class Command(BaseCommand):
                                 room=room, tutor=None, date=day, start_time=start, end_time=end)
                             count += int(created)
                 continue
-            for tutor in Tutor.objects.filter(is_active=True).exclude(display_name__endswith=ADVISOR_SUFFIX):
+            for tutor in Tutor.objects.filter(is_active=True).exclude(subjects=ADVISOR_SUBJECTS):
                 for start, end in zip(starts[:5], ends[:5]):
                     _, created = AvailabilitySlot.objects.get_or_create(
                         tutor=tutor, room=None, date=day, start_time=start, end_time=end
@@ -122,36 +122,55 @@ class Command(BaseCommand):
         """Earlier demo versions used invented peer tutors; remove them so only real people remain."""
         old = ['Jordan Smith', 'Alex Lee', 'Sam Rivera', 'Casey Chen', 'Priya Nair', 'Omar Haddad', 'Mei Tanaka',
                'Daniel Okafor', 'Sofia Marino', 'Lucas Bernard', 'Hannah Kim', 'Ibrahim Yusuf']
-        Tutor.objects.filter(display_name__in=old).delete()
+        for tutor in Tutor.objects.filter(display_name__in=old):
+            Booking.objects.filter(slot__tutor=tutor).delete()   # bookings protect their slots, so clear them first
+            AvailabilitySlot.objects.filter(tutor=tutor).delete()
+            tutor.delete()
+
+    def _remove_old_advisors(self, keep):
+        """Drop earlier faculty profiles (the invented or '(Demo)' ones) that are not in the current list."""
+        for tutor in Tutor.objects.filter(subjects=ADVISOR_SUBJECTS).exclude(display_name__in=keep):
+            Booking.objects.filter(slot__tutor=tutor).delete()
+            AvailabilitySlot.objects.filter(tutor=tutor).delete()
+            tutor.delete()
+        for tutor in Tutor.objects.filter(display_name__endswith=' (Demo)'):
+            Booking.objects.filter(slot__tutor=tutor).delete()
+            AvailabilitySlot.objects.filter(tutor=tutor).delete()
+            tutor.delete()
 
     def _seed_advisors(self):
-        """Bookable faculty office hours, using names from the School of Computer Science faculty page.
+        """Faculty office hours for ten members of the School of Computer Science, named as on its faculty page.
 
-        This is a prototype: the profiles are demo illustrations and carry a visible "(Demo)" marker.
-        Courses, research areas and contact details are deliberately not stated; see the official page.
+        The slots are illustrative for this prototype; the official page is the authority on real office hours.
         """
         advisors = [  # (name, weekday 1=Tue 3=Thu, hour)
-            ('Dr. Olena Syrotkina', 1, 13), ('Dr. Aznam Yacoub', 3, 13), ('Dr. Imran Ahmad', 1, 14),
-            ('Dr. Christie Ezeife', 3, 14), ('Dr. Ziad Kobti', 1, 15), ('Dr. Luis Rueda', 3, 15),
-            ('Dr. Alioune Ngom', 1, 16), ('Dr. Sherif Saad Ahmed', 3, 16),
+            ('Dr. Prashanth Cheluvasai Ranga', 1, 13), ('Dr. Kalyani Selvarajah', 3, 13), ('Dr. Ziad Kobti', 1, 14),
+            ('Dr. Aznam Yacoub', 3, 14), ('Dr. Shaoquan Jiang', 1, 15), ('Dr. Boubakeur Boufama', 3, 15),
+            ('Dr. Olena Syrotkina', 1, 16), ('Dr. Imran Ahmad', 3, 16), ('Dr. Christie Ezeife', 1, 11), ('Dr. Luis Rueda', 3, 11),
         ]
-        bio = ('Demo office-hours profile for the StudySync prototype. The person named is listed on the University of '
-               'Windsor School of Computer Science faculty page; they have not endorsed or taken part in this app. '
-               'For real office hours, use the official page.')
+        bio = ('Faculty office hours, School of Computer Science, University of Windsor. Slots here are illustrative '
+               'for the StudySync prototype; check the official faculty page for real office hours.')
+        self._remove_old_advisors([name for name, _, _ in advisors])
         for i, (name, weekday, hour) in enumerate(advisors):
-            full_name = name + ADVISOR_SUFFIX
             user = None
-            if i == 0:
+            if name == 'Dr. Olena Syrotkina':
                 user, made = User.objects.get_or_create(username='advisor@example.test', defaults={
-                    'email': 'advisor@example.test', 'first_name': 'Olena', 'last_name': 'Syrotkina (Demo)'})
+                    'email': 'advisor@example.test', 'first_name': 'Olena', 'last_name': 'Syrotkina'})
                 if made:
                     user.set_password('Demo12345!')
                     user.save()
-            advisor, _ = Tutor.objects.get_or_create(display_name=full_name, defaults={
-                'user': user, 'subjects': 'Faculty office hours', 'bio': bio, 'location': '300 Ouellette',
+                elif user.last_name != 'Syrotkina':
+                    user.last_name = 'Syrotkina'
+                    user.save(update_fields=['last_name'])
+            advisor, _ = Tutor.objects.get_or_create(display_name=name, defaults={
+                'user': user, 'subjects': ADVISOR_SUBJECTS, 'bio': bio, 'location': '300 Ouellette',
                 'requires_approval': True, 'meeting_url': ''})
+            if user and advisor.user_id is None:
+                advisor.user = user
+                advisor.save(update_fields=['user'])
+            first = timezone.localdate() + timedelta(days=1)
             for week in range(0, 5):
-                day = timezone.localdate() + timedelta(days=1) + timedelta(days=(weekday - (timezone.localdate() + timedelta(days=1)).weekday()) % 7 + 7 * week)
+                day = first + timedelta(days=(weekday - first.weekday()) % 7 + 7 * week)
                 AvailabilitySlot.objects.get_or_create(tutor=advisor, room=None, date=day,
                                                        start_time=time(hour, 0), end_time=time(hour + 1, 0))
 
