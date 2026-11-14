@@ -744,3 +744,15 @@ class FacultyPageTests(TestCase):
         self.assertContains(resp, 'Dr. Olena Syrotkina')
         self.assertContains(resp, 'not StudySync tutors')
         self.assertFalse(Tutor.objects.filter(display_name__icontains='Yacoub').exists())
+
+
+class PagerTests(TestCase):
+    def test_previous_button_uses_a_left_arrow_and_is_not_mirrored(self):
+        for i in range(30):
+            Tutor.objects.create(display_name=f'Pager Tutor {i:02d}', subjects='Pagination')
+        resp = self.client.get(reverse('catalog'), {'page': 2})
+        self.assertContains(resp, 'Previous')
+        self.assertContains(resp, 'M19 12H5M11 6l-6 6 6 6')   # left-pointing arrow
+        self.assertNotContains(resp, 'sr-flip')                 # the old mirrored-text hack
+        first = self.client.get(reverse('catalog'))
+        self.assertContains(first, 'is-disabled')               # Previous is shown but disabled on page 1
