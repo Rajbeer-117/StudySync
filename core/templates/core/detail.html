@@ -55,7 +55,6 @@
           <a class="link-btn" href="https://www.uwindsor.ca/science/computerscience/1046/faculty" target="_blank" rel="noopener noreferrer">{% include 'core/_icon.html' with name='users' %} All faculty {% include 'core/_icon.html' with name='arrow-up-right' %}</a>
           {% if resource.meeting_url %}<a class="link-btn" href="{{ resource.meeting_url }}" target="_blank" rel="noopener noreferrer">{% include 'core/_icon.html' with name='calendar' %} Online meeting room {% include 'core/_icon.html' with name='arrow-up-right' %}</a>{% endif %}
         </div>
-        <p class="hint">{% include 'core/_icon.html' with name='shield' %} Details are copied from the public profile. Open the official profile for the current office hours and contact details.</p>
       </section>
       {% elif resource_kind == 'room' %}
       <section class="info-panel glass reveal" id="space" aria-labelledby="space-h">
