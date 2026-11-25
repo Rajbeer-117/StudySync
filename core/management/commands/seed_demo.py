@@ -2,7 +2,7 @@
 
 Rooms are the University of Windsor Leddy Library study rooms listed at leddy.uwindsor.ca.
 Tutors are School of Computer Science faculty; titles, offices and research interests are copied from their
-public profile pages. Office-hour slots and the sample bookings are illustrative only.
+public profile pages. Office-hour slots (three weekdays a week for the next four weeks) and the sample bookings are illustrative only.
 """
 from datetime import timedelta, time
 from django.contrib.auth import get_user_model
@@ -89,6 +89,10 @@ def _purge_tutor(tutor):
     tutor.delete()
 
 
+OFFICE_HOUR_DAYS = 28  # how far ahead professors' office hours are created
+ROOM_DAYS = 28         # how far ahead Leddy room slots are created
+
+
 class Command(BaseCommand):
     help = 'Create sample StudySync users, faculty tutors, Leddy Library rooms, and upcoming availability.'
 
@@ -111,7 +115,7 @@ class Command(BaseCommand):
             user.save()
             users[name] = user
 
-        for name, subjects, location, title, office, interests, path, weekday, hour in FACULTY:
+        for index, (name, subjects, location, title, office, interests, path, weekday, hour) in enumerate(FACULTY):
             bio = f'{title}, School of Computer Science, University of Windsor.'
             tutor, _ = Tutor.objects.get_or_create(display_name=name, defaults={'subjects': subjects, 'location': location, 'bio': bio})
             tutor.subjects, tutor.location, tutor.bio = subjects, location, bio
@@ -121,10 +125,7 @@ class Command(BaseCommand):
             if name in users:
                 tutor.user = users[name]
             tutor.save()
-            first_day = timezone.localdate() + timedelta(days=1)
-            for week in range(5):
-                day = first_day + timedelta(days=(weekday - first_day.weekday()) % 7 + 7 * week)
-                AvailabilitySlot.objects.get_or_create(tutor=tutor, room=None, date=day, start_time=time(hour, 0), end_time=time(hour + 1, 0))
+            self._seed_office_hours(tutor, weekday, hour, index)
 
         for name, building, capacity, amenities, description in ROOMS:
             room, _ = Room.objects.get_or_create(name=name, building=building, defaults={'capacity': capacity})
@@ -136,7 +137,7 @@ class Command(BaseCommand):
         count = 0
         starts = [time(10, 0), time(11, 30), time(14, 0), time(15, 30), time(9, 0), time(17, 0)]
         ends = [time(11, 0), time(12, 30), time(15, 0), time(16, 30), time(10, 0), time(18, 0)]
-        for delta in range(1, 15):
+        for delta in range(0, ROOM_DAYS):
             day = timezone.localdate() + timedelta(days=delta)
             if day.weekday() == 6:
                 continue
@@ -153,6 +154,18 @@ class Command(BaseCommand):
         self.stdout.write('Faculty (Dr. Olena Syrotkina, approves requests): advisor@example.test / Demo12345!')
         self.stdout.write(f'Totals: {Tutor.objects.count()} tutors, {Room.objects.count()} rooms, {AvailabilitySlot.objects.count()} slots, {Booking.objects.count()} bookings.')
         self.stdout.write('These credentials are for local development only.')
+
+    def _seed_office_hours(self, tutor, weekday, hour, index):
+        """Three weekdays a week, three one-hour windows a day, from today through OFFICE_HOUR_DAYS days ahead."""
+        offsets = (0, 2, 3) if index % 2 == 0 else (0, 2, 4)
+        days = {(weekday + off) % 5 for off in offsets}
+        hours = [(hour - 9 + k * 2) % 8 + 9 for k in range(3)]
+        for delta in range(0, OFFICE_HOUR_DAYS):
+            day = timezone.localdate() + timedelta(days=delta)
+            if day.weekday() not in days:
+                continue
+            for h in hours:
+                AvailabilitySlot.objects.get_or_create(tutor=tutor, room=None, date=day, start_time=time(h, 0), end_time=time(h + 1, 0))
 
     def _remove_old_people_and_rooms(self):
         """Earlier seeds used invented tutors, Group 11 members, '(Demo)' profiles and made-up rooms; remove them."""

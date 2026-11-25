@@ -776,3 +776,38 @@ class ProfilePanelTests(TestCase):
     def test_interest_list_splits_on_semicolons(self):
         t = Tutor(display_name='X', subjects='a', research_interests='One topic; Two topics.; ')
         self.assertEqual(t.interest_list, ['One topic', 'Two topics'])
+
+
+class SeedAvailabilityTests(TestCase):
+    """seed_demo must leave every professor with plenty of bookable time this week and next."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from django.core.management import call_command
+        call_command('seed_demo', verbosity=0)
+
+    def test_every_professor_has_slots_this_week_and_next(self):
+        today = timezone.localdate()
+        for tutor in Tutor.objects.all():
+            open_slots = services.available_slots(AvailabilitySlot.objects.filter(
+                tutor=tutor, date__lte=today + timedelta(days=13)))
+            self.assertGreaterEqual(open_slots.count(), 9, tutor.display_name)
+            self.assertGreaterEqual(len({s.date for s in open_slots}), 4, tutor.display_name)
+
+    def test_office_hours_are_on_weekdays_in_working_hours(self):
+        for s in AvailabilitySlot.objects.filter(tutor__isnull=False, date__gte=timezone.localdate()):
+            self.assertLess(s.date.weekday(), 5)
+            self.assertTrue(time(9) <= s.start_time <= time(16))
+            self.assertEqual(s.end_time.hour, s.start_time.hour + 1)
+
+    def test_rooms_have_slots_for_the_next_two_weeks(self):
+        today = timezone.localdate()
+        for room in Room.objects.filter(is_active=True):
+            self.assertGreaterEqual(AvailabilitySlot.objects.filter(
+                room=room, date__range=(today, today + timedelta(days=13))).count(), 20, room.name)
+
+    def test_seeding_twice_creates_no_duplicates(self):
+        from django.core.management import call_command
+        before = AvailabilitySlot.objects.count()
+        call_command('seed_demo', verbosity=0)
+        self.assertEqual(AvailabilitySlot.objects.count(), before)

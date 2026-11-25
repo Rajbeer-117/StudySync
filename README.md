@@ -29,7 +29,7 @@ python manage.py migrate
 python manage.py seed_demo          # optional sample data
 python manage.py runserver
 ```
-Seed data uses real University of Windsor information. Rooms are the bookable Leddy Library study rooms (group rooms 218C/D, 318A-D, 206-209, 310, 311 and 4111C for four people, plus personal study rooms), with equipment and booking rules copied from leddy.uwindsor.ca. Tutors are ten School of Computer Science faculty members; their titles, offices and research interests come from their public profile pages. The office-hour slots and sample bookings are illustrative, and the faculty have not taken part in building this app.
+Seed data uses real University of Windsor information. Rooms are the bookable Leddy Library study rooms (group rooms 218C/D, 318A-D, 206-209, 310, 311 and 4111C for four people, plus personal study rooms), with equipment and booking rules copied from leddy.uwindsor.ca. Tutors are ten School of Computer Science faculty members; their titles, offices and research interests come from their public profile pages. The office-hour slots (three weekdays a week, three one-hour windows a day, for the next four weeks) and sample bookings are illustrative, and the faculty have not taken part in building this app.
 
 Logins (password `Demo12345!`): `student@example.test`; `tutor@example.test` (Dr. Ziad Kobti) and `advisor@example.test` (Dr. Olena Syrotkina), who both approve requests. Local development only.
 
