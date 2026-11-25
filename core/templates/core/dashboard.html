@@ -1,4 +1,4 @@
-{% extends 'core/base.html' %}
+{% extends 'core/base.html' %}{% load ui %}
 {% block title %}Dashboard{% endblock %}
 {% block content %}
 <div class="container page">
@@ -33,7 +33,7 @@
       {% empty %}<p class="hint">No upcoming sessions.</p>{% endfor %}
     </section>
     <section class="panel glass reveal"><div class="panel-head"><h2>Saved for later</h2><a href="{% url 'favorites' %}">View all</a></div>
-      {% for fav in favorites_preview %}<a class="row-item" href="{% if fav.tutor_id %}{% url 'tutor_detail' fav.tutor_id %}{% else %}{% url 'room_detail' fav.room_id %}{% endif %}"><span class="avatar avatar-sm">{{ fav.resource|slice:':1' }}</span><div class="row-main"><strong>{% if fav.tutor_id %}{{ fav.tutor.display_name }}{% else %}{{ fav.room.name }}{% endif %}</strong><small>{% if fav.tutor_id %}{{ fav.tutor.subjects }}{% else %}{{ fav.room.building }}{% endif %}</small></div>{% include 'core/_icon.html' with name='arrow-right' %}</a>
+      {% for fav in favorites_preview %}<a class="row-item" href="{% if fav.tutor_id %}{% url 'tutor_detail' fav.tutor_id %}{% else %}{% url 'room_detail' fav.room_id %}{% endif %}">{% if fav.tutor_id %}<span class="avatar avatar-sm" style="--h: {{ fav.tutor.display_name|avatar_hue }}" aria-hidden="true">{{ fav.tutor.display_name|initials }}</span>{% else %}<span class="avatar avatar-sm avatar-square room-glyph" aria-hidden="true">{% include 'core/_icon.html' with name='building' %}</span>{% endif %}<div class="row-main"><strong>{% if fav.tutor_id %}{{ fav.tutor.display_name }}{% else %}{{ fav.room.name }}{% endif %}</strong><small>{% if fav.tutor_id %}{{ fav.tutor.subjects }}{% else %}{{ fav.room.building }}{% endif %}</small></div>{% include 'core/_icon.html' with name='arrow-right' %}</a>
       {% empty %}<p class="hint">Tap the heart on any tutor or room to save it here.</p>{% endfor %}
     </section>
   </div>

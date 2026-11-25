@@ -733,3 +733,33 @@ main { padding-bottom: env(safe-area-inset-bottom); }
 @media (prefers-reduced-motion: reduce) { .link-btn:hover { transform: none; } }
 .panel-head > div { flex: 1; text-align: left; }
 .panel-head h2, .panel-head p { text-align: left; }
+
+/* ---------- refinement pass: avatars, rows, empty states ---------- */
+.avatar { overflow: hidden; line-height: 1; letter-spacing: .02em; text-align: center; user-select: none; }
+.avatar-sm { font-size: .72rem; }
+.avatar-lg { font-size: 1.15rem; }
+.avatar-xl { font-size: 1.9rem; }
+img.avatar { display: block; background: var(--glass-bg-flat); }
+.avatar[style*="--h"] {
+  background: linear-gradient(145deg, hsl(var(--h) 68% 50%), hsl(calc(var(--h) + 24) 62% 32%));
+  color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, .35);
+}
+.avatar-xl, .avatar-lg { box-shadow: inset 0 1px 1px rgba(255, 255, 255, .5), 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent), 0 10px 24px -10px rgba(0, 0, 0, .55); }
+
+.row-main > strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-main > small { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+a.row-item { border-radius: 14px; padding-inline: .5rem; margin-inline: -.5rem; transition: transform .3s var(--ease), background-color .2s ease; }
+a.row-item:hover, a.row-item:focus-visible { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+a.row-item > .i { flex: none; opacity: .6; transition: opacity .2s ease, transform .3s var(--ease); }
+a.row-item:hover > .i { opacity: 1; transform: translateX(2px); }
+
+.hint { padding: 1.1rem 1rem; text-align: center; color: var(--text-2); border: 1px dashed var(--line); border-radius: 14px; background: color-mix(in srgb, var(--glass-bg-flat) 60%, transparent); }
+.tutor-card .card-top .avatar { transition: transform .3s var(--ease); }
+.tutor-card:hover .card-top .avatar { transform: scale(1.04); }
+@media (prefers-reduced-motion: reduce) {
+  a.row-item > .i, .tutor-card .card-top .avatar { transition: none; }
+  a.row-item:hover > .i, .tutor-card:hover .card-top .avatar { transform: none; }
+}
+@media (forced-colors: active) {
+  .avatar[style*="--h"] { background: ButtonFace; color: ButtonText; border: 1px solid ButtonText; text-shadow: none; }
+}

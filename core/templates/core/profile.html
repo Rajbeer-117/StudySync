@@ -1,11 +1,11 @@
-{% extends 'core/base.html' %}
+{% extends 'core/base.html' %}{% load ui %}
 {% block title %}My profile{% endblock %}
 {% block content %}
 <div class="container page narrow">
   <header class="page-head reveal"><span class="kicker">Account settings</span><h1>Your profile</h1><p>Update the details others see.</p></header>
   <section class="glass summary reveal">
     <div class="profile-head">
-      {% if student and student.photo %}<img class="avatar avatar-xl" src="{{ student.photo.url }}" alt="Your photo">{% elif tutor and tutor.photo %}<img class="avatar avatar-xl" src="{{ tutor.photo.url }}" alt="Your photo">{% else %}<span class="avatar avatar-xl">{{ user.first_name|slice:':1'|default:'S' }}</span>{% endif %}
+      {% if student and student.photo %}<img class="avatar avatar-xl" src="{{ student.photo.url }}" alt="Your photo">{% elif tutor and tutor.photo %}<img class="avatar avatar-xl" src="{{ tutor.photo.url }}" alt="Your photo">{% else %}<span class="avatar avatar-xl" style="--h: {{ user.get_full_name|default:user.username|avatar_hue }}" aria-hidden="true">{{ user.get_full_name|default:user.username|initials:"S" }}</span>{% endif %}
       <div class="profile-title"><h2>{{ user.get_full_name|default:user.username }}</h2><p class="meta">{{ user.email }}</p><span class="badge badge-open">{% if student %}Student{% elif tutor %}Tutor{% else %}Admin{% endif %}</span></div>
     </div>
     <form method="post" enctype="multipart/form-data" class="stack">{% csrf_token %}

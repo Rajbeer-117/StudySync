@@ -1,4 +1,4 @@
-{% extends 'core/base.html' %}
+{% extends 'core/base.html' %}{% load ui %}
 {% block title %}Booking #{{ booking.pk }}{% endblock %}
 {% block content %}
 <div class="container page">
@@ -7,7 +7,7 @@
     <div class="detail-main">
       <section class="profile glass reveal">
         <div class="profile-head">
-          <span class="avatar avatar-xl {% if not slot.tutor_id %}avatar-square room-glyph{% endif %}">{% if slot.tutor_id %}{{ slot.tutor.display_name|slice:':1' }}{% else %}{% include 'core/_icon.html' with name='building' %}{% endif %}</span>
+          <span class="avatar avatar-xl {% if not slot.tutor_id %}avatar-square room-glyph{% endif %}">{% if slot.tutor_id %}{{ slot.tutor.display_name|initials }}{% else %}{% include 'core/_icon.html' with name='building' %}{% endif %}</span>
           <div class="profile-title"><span class="kicker">Booking #{{ booking.pk }}</span>
             <h1>{% if role == 'student' %}{{ slot.resource }}{% else %}{{ booking.student.user.get_full_name|default:booking.student.user.email }}{% endif %}</h1>
             <div class="chips"><span class="badge badge-{{ booking.tone }}">{{ booking.display_status }}</span><span class="chip">{{ slot.kind|title }} session</span></div></div>

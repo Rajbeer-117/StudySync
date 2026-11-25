@@ -1,4 +1,4 @@
-{% extends 'core/base.html' %}
+{% extends 'core/base.html' %}{% load ui %}
 {% block title %}{% if resource_kind == 'tutor' %}{{ resource.display_name }}{% else %}{{ resource.name }}{% endif %}{% endblock %}
 {% block content %}
 <div class="container page detail">
@@ -9,7 +9,7 @@
         <div class="profile-head">
           {% if resource.photo %}<img class="avatar avatar-xl" src="{{ resource.photo.url }}" alt="{{ resource }}">
           {% elif resource.image %}<img class="avatar avatar-xl avatar-square" src="{{ resource.image.url }}" alt="{{ resource }}">
-          {% elif resource_kind == 'tutor' %}<span class="avatar avatar-xl">{{ resource.display_name|slice:':1' }}</span>
+          {% elif resource_kind == 'tutor' %}<span class="avatar avatar-xl" style="--h: {{ resource.display_name|avatar_hue }}" aria-hidden="true">{{ resource.display_name|initials }}</span>
           {% else %}<span class="avatar avatar-xl avatar-square room-glyph">{% include 'core/_icon.html' with name='building' %}</span>{% endif %}
           <div class="profile-title">
             <span class="kicker">{% if resource_kind == 'tutor' %}Campus tutor{% else %}Study space{% endif %}</span>
@@ -95,7 +95,7 @@
         <div class="review-list">
           {% for review in reviews %}
           <article class="review">
-            <span class="avatar avatar-sm">{{ review.student.user.first_name|slice:':1'|default:'S' }}</span>
+            <span class="avatar avatar-sm" style="--h: {{ review.student.user.get_full_name|avatar_hue }}" aria-hidden="true">{{ review.student.user.get_full_name|default:review.student.user.first_name|initials:"S" }}</span>
             <div><div class="review-top"><strong>{{ review.student.user.first_name|default:'Student' }} {{ review.student.user.last_name|slice:':1' }}{% if review.student.user.last_name %}.{% endif %}</strong>{% include 'core/_stars.html' with value=review.rating %}<time>{{ review.created_at|date:'M j, Y' }}</time></div>
               {% if review.comment %}<p>{{ review.comment }}</p>{% endif %}
               {% if my_review and review.pk == my_review.pk %}<form method="post" action="{% url 'delete_review' review.pk %}">{% csrf_token %}<button class="link-danger" type="submit" data-confirm="Delete your review?">Delete my review</button></form>{% endif %}

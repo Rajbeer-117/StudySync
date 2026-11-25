@@ -1,4 +1,4 @@
-{% load static %}<!doctype html>
+{% load static ui %}<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -54,7 +54,7 @@
       </button>
       {% if user.is_authenticated %}
         <div class="menu" data-menu>
-          <button type="button" class="menu-trigger" data-menu-trigger aria-haspopup="true" aria-expanded="false"><span class="avatar avatar-sm">{{ user.first_name|slice:':1'|default:'U' }}</span><span class="menu-name">{{ user.first_name|default:'Account' }}</span>{% include 'core/_icon.html' with name='chevron-down' %}</button>
+          <button type="button" class="menu-trigger" data-menu-trigger aria-haspopup="true" aria-expanded="false"><span class="avatar avatar-sm" style="--h: {{ user.get_full_name|default:user.username|avatar_hue }}" aria-hidden="true">{{ user.get_full_name|default:user.username|initials:"U" }}</span><span class="menu-name">{{ user.first_name|default:'Account' }}</span>{% include 'core/_icon.html' with name='chevron-down' %}</button>
           <div class="menu-sheet glass" role="menu">
             <a role="menuitem" href="{% url 'dashboard' %}">{% include 'core/_icon.html' with name='grid' %} Dashboard</a>
             <a role="menuitem" href="{% url 'notifications' %}">{% include 'core/_icon.html' with name='bell' %} Notifications</a>
